@@ -15,6 +15,26 @@
   max-width: none;
 }
 
+.things-panel {
+  min-width: 200px;
+  max-width: 320px;
+  width: 220px;
+}
+
+.things-panel-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.things-panel .panel-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 .panel-header {
   height: 30px;
   background-color: var(--bg-tertiary);

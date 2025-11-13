@@ -1755,7 +1755,11 @@ export class ObjectBuilderWorker extends EventEmitter {
         }
 
         console.log(`[ObjectBuilderWorker] sendThingList: sending ${list.length} items`);
-        this.sendCommand(new SetThingListCommand(selectedIds, list));
+        
+        // Calculate total count (number of IDs in the range)
+        const totalCount = last - first + 1;
+        
+        this.sendCommand(new SetThingListCommand(selectedIds, list, totalCount, first, last, min, max));
     }
 
     private sendSpriteList(selectedIds: number[]): void {

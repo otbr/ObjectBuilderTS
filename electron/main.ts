@@ -190,6 +190,11 @@ function serializeCommand(command: WorkerCommand): any {
     serialized.data = {
       selectedIds: cmd.selectedIds || [],
       list: (cmd.things || []).map((item: any) => serializeThingListItem(item)),
+      totalCount: cmd.totalCount,
+      minId: cmd.minId,
+      maxId: cmd.maxId,
+      currentMin: cmd.currentMin,
+      currentMax: cmd.currentMax,
     };
   } else if (commandName === 'SetSpriteListCommand') {
     const cmd = command as any;

@@ -19,14 +19,32 @@ interface ThingListItem {
   spritePixels?: any;
 }
 
-export const ThingList: React.FC = () => {
+interface ThingListProps {
+	onPaginationChange?: (pagination: {
+		totalCount: number;
+		minId: number;
+		maxId: number;
+		currentMin: number;
+		currentMax: number;
+	} | null) => void;
+	onNavigate?: (navigateFn: (targetId: number) => void) => void;
+}
+
+export const ThingList: React.FC<ThingListProps> = ({ onPaginationChange, onNavigate }) => {
   const worker = useWorker();
   const { currentCategory, selectedThingIds, setSelectedThingIds, clientInfo } = useAppStateContext();
   const [things, setThings] = useState<ThingListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState<{
+    totalCount: number;
+    minId: number;
+    maxId: number;
+    currentMin: number;
+    currentMax: number;
+  } | null>(null);
   const clientLoaded = clientInfo?.loaded || false;
 
-  const loadThingList = useCallback(async () => {
+  const loadThingList = useCallback(async (targetId?: number) => {
     if (!clientLoaded) {
       console.log('[ThingList] Not loading - client not loaded');
       return;
@@ -36,9 +54,10 @@ export const ThingList: React.FC = () => {
     try {
       // Use appropriate starting ID based on category
       // Items start at 100, outfits/effects/missiles start at 1
-      const targetId = currentCategory === 'item' ? 100 : 1;
-      console.log(`[ThingList] Loading thing list: category=${currentCategory}, targetId=${targetId}`);
-      const command = CommandFactory.createGetThingListCommand(targetId, currentCategory);
+      const defaultTargetId = currentCategory === 'item' ? 100 : 1;
+      const finalTargetId = targetId !== undefined ? targetId : defaultTargetId;
+      console.log(`[ThingList] Loading thing list: category=${currentCategory}, targetId=${finalTargetId}`);
+      const command = CommandFactory.createGetThingListCommand(finalTargetId, currentCategory);
       await worker.sendCommand(command);
     } catch (error) {
       console.error('[ThingList] Failed to load thing list:', error);
@@ -48,6 +67,7 @@ export const ThingList: React.FC = () => {
 
   useEffect(() => {
     // Load thing list when category changes
+    setPagination(null);
     loadThingList();
   }, [currentCategory, loadThingList]);
 
@@ -124,6 +144,26 @@ export const ThingList: React.FC = () => {
         if (selectedIds.length > 0) {
           setSelectedThingIds(selectedIds);
         }
+        
+        // Update pagination info if available
+        // Check both direct properties and data wrapper
+        const paginationData = command.data || command;
+        if (paginationData.totalCount !== undefined || paginationData.minId !== undefined) {
+          const newPagination = {
+            totalCount: paginationData.totalCount || 0,
+            minId: paginationData.minId || 0,
+            maxId: paginationData.maxId || 0,
+            currentMin: paginationData.currentMin || 0,
+            currentMax: paginationData.currentMax || 0,
+          };
+          setPagination(newPagination);
+          onPaginationChange?.(newPagination);
+        } else {
+          // Clear pagination if not available
+          setPagination(null);
+          onPaginationChange?.(null);
+        }
+        
         setLoading(false);
       } else if (command.type === 'SetThingDataCommand') {
         // Clear loading flag when thing data is received
@@ -273,6 +313,13 @@ export const ThingList: React.FC = () => {
     }
   };
 
+  // Expose navigation function for external pagination component
+  useEffect(() => {
+    if (onNavigate) {
+      onNavigate(loadThingList);
+    }
+  }, [onNavigate, loadThingList]);
+
   if (loading) {
     return (
       <div className="thing-list-loading">
@@ -297,7 +344,17 @@ export const ThingList: React.FC = () => {
       ) : (
         <>
           <div className="thing-list-header">
-            <span className="thing-list-count">{things.length} {currentCategory}</span>
+            <span className="thing-list-count">
+              {pagination ? (
+                <>
+                  {pagination.currentMin}-{pagination.currentMax} of {pagination.totalCount} {currentCategory}
+                </>
+              ) : (
+                <>
+                  {things.length} {currentCategory}
+                </>
+              )}
+            </span>
           </div>
           <div className="thing-list-items">
             {things.map((thing) => (

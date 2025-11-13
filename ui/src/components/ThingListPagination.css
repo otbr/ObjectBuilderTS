@@ -1,0 +1,63 @@
+.thing-list-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	padding: 6px 4px;
+	background-color: var(--bg-secondary);
+	border-top: 1px solid var(--border-color);
+	font-size: 10px;
+	flex-shrink: 0;
+	min-height: 34px;
+}
+
+.thing-list-pagination-button {
+	background-color: var(--bg-tertiary);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 2px 6px;
+	cursor: pointer;
+	font-size: 11px;
+	border-radius: 2px;
+	transition: background-color 0.2s, border-color 0.2s;
+	min-width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.thing-list-pagination-button:hover:not(:disabled) {
+	background-color: var(--bg-hover);
+	border-color: var(--accent-color);
+}
+
+.thing-list-pagination-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.thing-list-pagination-input {
+	background-color: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 2px 6px;
+	font-size: 11px;
+	border-radius: 2px;
+	width: 60px;
+	height: 22px;
+	text-align: center;
+	outline: none;
+}
+
+.thing-list-pagination-input:focus {
+	border-color: var(--accent-color);
+	outline: 1px solid var(--accent-color);
+	outline-offset: -1px;
+}
+
+.thing-list-pagination-input:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
