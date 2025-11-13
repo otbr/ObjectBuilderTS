@@ -19,6 +19,8 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ onClose }) => {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [showAllPatterns, setShowAllPatterns] = useState(false);
+  const [backgroundColor, setBackgroundColor] = useState('#494949');
+  const [showGrid, setShowGrid] = useState(false);
   const canvasSectionRef = useRef<HTMLDivElement>(null);
 
   // Listen for SetThingDataCommand to update preview
@@ -127,6 +129,8 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ onClose }) => {
                   zoom={zoom}
                   currentFrame={currentFrame}
                   showAllPatterns={showAllPatterns}
+                  backgroundColor={backgroundColor}
+                  showGrid={showGrid}
                 />
                 {/* Zoom controls */}
                 <div className="preview-zoom-controls" title="preview-zoom-controls">
@@ -324,6 +328,37 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ onClose }) => {
                         </label>
                       </div>
                     )}
+                    {/* Background Color */}
+                    <div className="preview-control-group" title="preview-control-group">
+                      <label title="label">Background Color:</label>
+                      <div className="preview-color-control">
+                        <input
+                          type="color"
+                          value={backgroundColor}
+                          onChange={(e) => setBackgroundColor(e.target.value)}
+                          title="input[type=color] (Background color picker)"
+                        />
+                        <input
+                          type="text"
+                          value={backgroundColor}
+                          onChange={(e) => setBackgroundColor(e.target.value)}
+                          className="preview-color-input"
+                          title="input[type=text] (Background color text input)"
+                        />
+                      </div>
+                    </div>
+                    {/* Grid Overlay */}
+                    <div className="preview-control-group" title="preview-control-group">
+                      <label title="label">
+                        <input
+                          type="checkbox"
+                          checked={showGrid}
+                          onChange={(e) => setShowGrid(e.target.checked)}
+                          title="input[type=checkbox] (Show Grid checkbox)"
+                        />
+                        {' '}Show Grid
+                      </label>
+                    </div>
                   </>
                 )}
               </div>

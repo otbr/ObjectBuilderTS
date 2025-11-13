@@ -14,6 +14,8 @@ interface PreviewCanvasProps {
   currentFrame?: number;
   onFrameChange?: (frame: number) => void; // Reserved for future use
   showAllPatterns?: boolean;
+  backgroundColor?: string;
+  showGrid?: boolean;
 }
 
 export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
@@ -29,6 +31,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   currentFrame: currentFrameProp,
   onFrameChange: _onFrameChange,
   showAllPatterns = false,
+  backgroundColor = '#494949',
+  showGrid = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -57,8 +61,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     // Render at zoomed size for proper scaling
     const zoomedWidth = width * zoom;
     const zoomedHeight = height * zoom;
-    renderThing(ctx, thingData, zoomedWidth, zoomedHeight, frameGroupType, patternX, patternY, patternZ, currentFrame, showAllPatterns, zoom);
-  }, [thingData, width, height, frameGroupType, patternX, patternY, patternZ, currentFrame, showAllPatterns, zoom]);
+    renderThing(ctx, thingData, zoomedWidth, zoomedHeight, frameGroupType, patternX, patternY, patternZ, currentFrame, showAllPatterns, zoom, backgroundColor, showGrid);
+  }, [thingData, width, height, frameGroupType, patternX, patternY, patternZ, currentFrame, showAllPatterns, zoom, backgroundColor, showGrid]);
 
   // Animation effect
   useEffect(() => {
@@ -152,13 +156,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     pz: number,
     frame: number,
     showAllPatterns: boolean = false,
-    zoom: number = 1
+    zoom: number = 1,
+    backgroundColor: string = '#494949',
+    showGrid: boolean = false
   ) => {
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // Set background
-    ctx.fillStyle = '#636363';
+    // Set background color
+    ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Scale context by zoom so content renders at correct size
@@ -211,6 +217,27 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
       renderPlaceholder(ctx, baseWidth, baseHeight);
       ctx.restore();
       return;
+    }
+
+    // Render grid overlay if enabled
+    if (showGrid) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1 / zoom; // Scale line width with zoom
+      const gridSize = 32; // Standard sprite size
+      for (let x = 0; x <= baseWidth; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, baseHeight);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= baseHeight; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(baseWidth, y);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     // Render multi-sprite composition

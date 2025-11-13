@@ -12,9 +12,9 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 ## 🎨 Windows & Dialogs
 
 ### Core Windows
-- ❌ **Animation Editor** (`AnimationEditor`) - Advanced animation frame editing tool
+- 🟡 **Animation Editor** (`AnimationEditor`) - Basic implementation, save functionality pending
 - ✅ **Object Viewer** (`ObjectViewer`) - Standalone window to view .obd files
-- ❌ **Slicer** (`Slicer`) - Tool to slice sprite sheets into individual sprites
+- ✅ **Slicer** (`Slicer`) - Tool to slice sprite sheets into individual sprites
 - ❌ **Asset Store** (`AssetStore`) - Browse and import assets from online store
 - ❌ **Look Generator** (`LookGenerator`) - Generate character looks/outfits
 - ❌ **Client Versions Window** (`ClientVersionsWindow`) - Manage client version definitions
@@ -22,9 +22,9 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 - ✅ **Files Info Panel** (`FilesInfoPanel`) - Display file information and statistics
 
 ### Optimizer Windows
-- ❌ **Sprites Optimizer Window** (`SpritesOptimizerWindow`) - Optimize sprite storage
-- ❌ **Frame Durations Optimizer Window** (`FrameDurationsOptimizerWindow`) - Optimize animation frame durations
-- ❌ **Frame Groups Converter Window** (`FrameGroupsConverterWindow`) - Convert between frame group formats
+- ✅ **Sprites Optimizer Window** (`SpritesOptimizerWindow`) - Optimize sprite storage
+- ✅ **Frame Durations Optimizer Window** (`FrameDurationsOptimizerWindow`) - Optimize animation frame durations
+- ✅ **Frame Groups Converter Window** (`FrameGroupsConverterWindow`) - Convert between frame group formats
 
 ### Advanced Dialogs
 - 🟡 **Export Window** (`ExportWindow`) - More advanced export options (partially implemented)
@@ -61,16 +61,16 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 ## 🎯 Advanced Features
 
 ### Preview & Rendering
-- 🟡 **Preview Canvas** - Basic implementation, missing:
-  - ❌ Animation playback controls
-  - ❌ Frame-by-frame navigation
-  - ❌ Zoom controls
-  - ❌ Background color picker
-  - ❌ Grid overlay
-  - ❌ Sprite offset visualization
+- ✅ **Preview Canvas** - Implementation complete with:
+  - ✅ Animation playback controls
+  - ✅ Frame-by-frame navigation
+  - ✅ Zoom controls (mouse wheel + buttons)
+  - ✅ Background color picker
+  - ✅ Grid overlay
+  - ❌ Sprite offset visualization (pending)
 - ❌ **Preview Navigator** (`PreviewNavigator`) - Advanced preview controls
-- ❌ **Multi-sprite composition** - Better handling of complex sprites
-- ❌ **Animation preview** - Play animations in preview
+- ✅ **Multi-sprite composition** - Better handling of complex sprites
+- ✅ **Animation preview** - Play animations in preview
 
 ### Thing Editor
 - 🟡 **ThingEditor** - Basic properties implemented, missing:
@@ -113,20 +113,20 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 - ✅ **Unload Project** - Confirmation dialog before unloading
 - ✅ **Compile As** - Save project with different name/location
 - ✅ **Auto-save thing changes** - Automatically save on compile
-- ❌ **Recent files list** - Show recently opened projects
+- ✅ **Recent files list** - Show recently opened projects in File menu (up to 10 files)
 - ❌ **File change detection** - Warn if files changed externally
 
 ### Import/Export
-- ❌ **Batch import** - Import multiple files at once
-- ❌ **Import from clipboard** - Paste sprites/images
-- ❌ **Export formats** - More export format options
+- ✅ **Batch import** - Import multiple files at once
+- ✅ **Import from clipboard** - Paste sprites/images from clipboard
+- 🟡 **Export formats** - Basic formats supported, more options pending
 - ❌ **Export templates** - Save export configurations
 - ❌ **Sprite sheet export** - Export as sprite sheets
 
 ### Optimization
-- ❌ **Sprite optimization** - Remove duplicate sprites
-- ❌ **Frame duration optimization** - Auto-optimize animation timings
-- ❌ **Frame group conversion** - Convert between formats
+- ✅ **Sprite optimization** - Remove duplicate sprites (via Sprites Optimizer Window)
+- ✅ **Frame duration optimization** - Auto-optimize animation timings (via Frame Durations Optimizer Window)
+- ✅ **Frame group conversion** - Convert between formats (via Frame Groups Converter Window)
 - ❌ **Thing optimization** - Remove unused things
 
 ---
@@ -307,21 +307,23 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 
 ### High Priority
 1. ✅ **Hotkey System** - Essential for power users
-2. **Animation Editor** - Core feature for animation work
+2. 🟡 **Animation Editor** - Core feature for animation work (basic implementation, save pending)
 3. ✅ **Object Viewer** - Useful standalone tool
-4. **Sprites Optimizer** - Performance improvement tool
+4. ✅ **Sprites Optimizer** - Performance improvement tool
 5. ✅ **Unload Project Confirmation** - Prevent data loss
 6. ✅ **Compile As** - Essential file operation
 7. ✅ **Auto-save thing changes** - Prevent data loss
+8. ✅ **Recent Files List** - Quick access to recently opened projects
 
 ### Medium Priority
-8. **Slicer** - Useful sprite tool
-9. **Look Generator** - Character creation tool
-10. **Frame Durations Optimizer** - Animation optimization
-11. **Frame Groups Converter** - Format conversion
-12. **Asset Store** - Asset management
-13. **Advanced Preview** - Better preview features
-14. **ThingTypeEditor** - Advanced editing
+9. ✅ **Slicer** - Useful sprite tool
+10. ❌ **Look Generator** - Character creation tool
+11. ✅ **Frame Durations Optimizer** - Animation optimization
+12. ✅ **Frame Groups Converter** - Format conversion
+13. ❌ **Asset Store** - Asset management
+14. ✅ **Advanced Preview** - Better preview features (background color, grid, zoom, animation controls)
+15. ❌ **ThingTypeEditor** - Advanced editing
+16. ✅ **Import from Clipboard** - Paste sprites/images from clipboard
 
 ### Low Priority
 15. **Custom Controls** - UI polish
@@ -334,14 +336,14 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 
 ## 📊 Implementation Progress
 
-**Overall Completion: ~78%**
+**Overall Completion: ~85%**
 
 - **Backend**: 100% ✅
-- **Core UI**: 90% ✅
-- **Dialogs**: 70% 🟡
-- **Tools**: 20% ❌
+- **Core UI**: 95% ✅
+- **Dialogs**: 80% 🟡
+- **Tools**: 60% 🟡
 - **Hotkeys**: 95% ✅
-- **Advanced Features**: 35% 🟡
+- **Advanced Features**: 55% 🟡
 
 ---
 
@@ -354,4 +356,12 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 - ✅ Verified Unload Project Confirmation and Compile As are implemented
 - ✅ Verified Object Viewer and Files Info Panel are implemented
 - ✅ Updated Preferences Window with hotkey editor
+- ✅ Implemented Sprites Optimizer Window
+- ✅ Implemented Frame Durations Optimizer Window
+- ✅ Implemented Frame Groups Converter Window
+- ✅ Implemented Slicer tool for slicing sprite sheets
+- ✅ Implemented Recent Files List (up to 10 files in File menu)
+- ✅ Implemented Import from Clipboard (paste sprites/images)
+- ✅ Implemented Advanced Preview features (background color picker, grid overlay, zoom controls, animation controls)
+- 🟡 Animation Editor basic implementation (save functionality pending)
 

@@ -142,6 +142,50 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        alert('Clipboard API not available. Please use "Browse Files" instead.');
+        return;
+      }
+
+      const clipboardItems = await navigator.clipboard.read();
+      const fileInfos: FileInfo[] = [];
+      
+      for (const item of clipboardItems) {
+        // Check if clipboard contains image
+        if (item.types.includes('image/png') || item.types.includes('image/jpeg') || item.types.includes('image/bmp') || item.types.includes('image/gif')) {
+          const blob = await item.getType(item.types.find(t => t.startsWith('image/')) || 'image/png');
+          
+          // Convert blob to temporary file
+          const electronAPI = (window as any).electronAPI;
+          if (electronAPI && electronAPI.writeTempFile) {
+            const arrayBuffer = await blob.arrayBuffer();
+            const ext = blob.type.split('/')[1] || 'png';
+            const tempPath = await electronAPI.writeTempFile(`clipboard_${Date.now()}.${ext}`, arrayBuffer);
+            
+            fileInfos.push({
+              path: tempPath,
+              name: `Clipboard Image.${ext}`,
+              size: arrayBuffer.byteLength,
+              valid: true,
+            });
+          }
+        }
+      }
+
+      if (fileInfos.length === 0) {
+        alert('No image found in clipboard. Please copy an image first.');
+        return;
+      }
+
+      setSelectedFiles((prev) => [...prev, ...fileInfos]);
+    } catch (error: any) {
+      console.error('Failed to paste from clipboard:', error);
+      alert(`Failed to paste from clipboard: ${error.message || 'Unknown error'}`);
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -212,6 +256,11 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
             <Button variant="secondary" onClick={handleBrowseFiles}>
               Browse Files...
             </Button>
+            {type === 'sprites' && (
+              <Button variant="secondary" onClick={handlePasteFromClipboard}>
+                Paste from Clipboard
+              </Button>
+            )}
             {selectedFiles.length > 0 && (
               <span className="file-count">{selectedFiles.length} file(s) selected</span>
             )}
