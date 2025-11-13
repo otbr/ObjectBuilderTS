@@ -23,6 +23,7 @@ import { SpritesOptimizerWindow } from './SpritesOptimizerWindow';
 import { FrameDurationsOptimizerWindow } from './FrameDurationsOptimizerWindow';
 import { FrameGroupsConverterWindow } from './FrameGroupsConverterWindow';
 import { ClientVersionsWindow } from './ClientVersionsWindow';
+import { LookGenerator } from './LookGenerator';
 import { Button } from './Button';
 import { AppStateProvider } from '../contexts/AppStateContext';
 import { ProgressProvider } from '../contexts/ProgressContext';
@@ -55,6 +56,7 @@ const MainWindowContent: React.FC = () => {
   const [showFrameDurationsOptimizer, setShowFrameDurationsOptimizer] = useState(false);
   const [showFrameGroupsConverter, setShowFrameGroupsConverter] = useState(false);
   const [showClientVersions, setShowClientVersions] = useState(false);
+  const [showLookGenerator, setShowLookGenerator] = useState(false);
   const [exportType, setExportType] = useState<'things' | 'sprites'>('things');
   const windowRef = useRef<HTMLDivElement>(null);
 
@@ -142,6 +144,9 @@ const MainWindowContent: React.FC = () => {
           break;
         case 'tools-client-versions':
           setShowClientVersions(true);
+          break;
+        case 'tools-look-generator':
+          setShowLookGenerator(true);
           break;
         case 'file-import':
           setShowImportDialog(true);
@@ -413,6 +418,11 @@ const MainWindowContent: React.FC = () => {
       {showClientVersions && (
         <ClientVersionsWindow
           onClose={() => setShowClientVersions(false)}
+        />
+      )}
+      {showLookGenerator && (
+        <LookGenerator
+          onClose={() => setShowLookGenerator(false)}
         />
       )}
     </>

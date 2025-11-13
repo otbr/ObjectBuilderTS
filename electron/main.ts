@@ -1243,6 +1243,14 @@ function createMenu(): void {
             }
           },
         },
+        {
+          label: 'Look Generator',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'tools-look-generator');
+            }
+          },
+        },
       ],
     },
     {
