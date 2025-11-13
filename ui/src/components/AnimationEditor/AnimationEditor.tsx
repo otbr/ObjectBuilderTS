@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimationEditorToolbar } from './AnimationEditorToolbar';
-import { Frame, FrameDuration } from './Frame';
+import { Frame } from './Frame';
 import { FileDialogService } from '../../services/FileDialogService';
 import { useToast } from '../../hooks/useToast';
 import { PreviewCanvas } from '../PreviewCanvas';
 import { Button } from '../Button';
+import { getImageProcessingService } from '../../services/ImageProcessingService';
 import './AnimationEditor.css';
 
 interface AnimationEditorProps {
@@ -13,8 +14,8 @@ interface AnimationEditorProps {
 
 type ThingCategory = 'item' | 'outfit' | 'effect' | 'missile';
 
-export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => {
-	const { showSuccess, showError } = useToast();
+export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose: _onClose }) => {
+	const { showError } = useToast();
 	const [image, setImage] = useState<HTMLImageElement | null>(null);
 	const [frames, setFrames] = useState<Frame[]>([]);
 	const [selectedFrameIndex, setSelectedFrameIndex] = useState<number>(-1);
@@ -33,8 +34,10 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => 
 	const gridOverlayRef = useRef<HTMLDivElement>(null);
 	const [isDragging, setIsDragging] = useState<boolean>(false);
 	const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+	const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
 	const fileDialog = FileDialogService.getInstance();
+	const imageProcessingService = getImageProcessingService();
 
 	// Load image from file
 	const handleOpenFile = useCallback(async () => {
@@ -117,91 +120,134 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => 
 	}, [showError]);
 
 	// Rotate image
-	const rotateImage = useCallback((degrees: number) => {
-		if (!image) return;
+	const rotateImage = useCallback(async (degrees: number) => {
+		if (!image || isProcessing) return;
 
-		const canvas = document.createElement('canvas');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+		setIsProcessing(true);
+		try {
+			// Get image data from canvas
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return;
 
-		const radians = (degrees * Math.PI) / 180;
-		const cos = Math.abs(Math.cos(radians));
-		const sin = Math.abs(Math.sin(radians));
-		canvas.width = image.width * cos + image.height * sin;
-		canvas.height = image.width * sin + image.height * cos;
+			canvas.width = image.width;
+			canvas.height = image.height;
+			ctx.drawImage(image, 0, 0);
+			const imageData = ctx.getImageData(0, 0, image.width, image.height);
 
-		ctx.translate(canvas.width / 2, canvas.height / 2);
-		ctx.rotate(radians);
-		ctx.drawImage(image, -image.width / 2, -image.height / 2);
+			// Process in worker
+			const rotatedImageData = await imageProcessingService.rotateImage(imageData, degrees);
 
-		const newImg = new Image();
-		newImg.onload = () => {
-			setImage(newImg);
-		};
-		newImg.src = canvas.toDataURL();
-	}, [image]);
+			// Convert back to image
+			const resultCanvas = document.createElement('canvas');
+			const resultCtx = resultCanvas.getContext('2d');
+			if (!resultCtx) return;
+
+			resultCanvas.width = rotatedImageData.width;
+			resultCanvas.height = rotatedImageData.height;
+			resultCtx.putImageData(rotatedImageData, 0, 0);
+
+			const newImg = new Image();
+			newImg.onload = () => {
+				setImage(newImg);
+				setIsProcessing(false);
+			};
+			newImg.onerror = () => {
+				showError('Failed to rotate image');
+				setIsProcessing(false);
+			};
+			newImg.src = resultCanvas.toDataURL();
+		} catch (error: any) {
+			showError(`Failed to rotate image: ${error.message}`);
+			setIsProcessing(false);
+		}
+	}, [image, isProcessing, imageProcessingService, showError]);
 
 	// Flip image
-	const flipImage = useCallback((horizontal: boolean, vertical: boolean) => {
-		if (!image) return;
+	const flipImage = useCallback(async (horizontal: boolean, vertical: boolean) => {
+		if (!image || isProcessing) return;
 
-		const canvas = document.createElement('canvas');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+		setIsProcessing(true);
+		try {
+			// Get image data from canvas
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return;
 
-		canvas.width = image.width;
-		canvas.height = image.height;
+			canvas.width = image.width;
+			canvas.height = image.height;
+			ctx.drawImage(image, 0, 0);
+			const imageData = ctx.getImageData(0, 0, image.width, image.height);
 
-		ctx.scale(horizontal ? -1 : 1, vertical ? -1 : 1);
-		ctx.drawImage(image, horizontal ? -image.width : 0, vertical ? -image.height : 0);
+			// Process in worker
+			const flippedImageData = await imageProcessingService.flipImage(imageData, horizontal, vertical);
 
-		const newImg = new Image();
-		newImg.onload = () => {
-			setImage(newImg);
-		};
-		newImg.src = canvas.toDataURL();
-	}, [image]);
+			// Convert back to image
+			const resultCanvas = document.createElement('canvas');
+			const resultCtx = resultCanvas.getContext('2d');
+			if (!resultCtx) return;
+
+			resultCanvas.width = flippedImageData.width;
+			resultCanvas.height = flippedImageData.height;
+			resultCtx.putImageData(flippedImageData, 0, 0);
+
+			const newImg = new Image();
+			newImg.onload = () => {
+				setImage(newImg);
+				setIsProcessing(false);
+			};
+			newImg.onerror = () => {
+				showError('Failed to flip image');
+				setIsProcessing(false);
+			};
+			newImg.src = resultCanvas.toDataURL();
+		} catch (error: any) {
+			showError(`Failed to flip image: ${error.message}`);
+			setIsProcessing(false);
+		}
+	}, [image, isProcessing, imageProcessingService, showError]);
 
 	// Cut frames from image
-	const handleCutFrames = useCallback(() => {
-		if (!image) return;
+	const handleCutFrames = useCallback(async () => {
+		if (!image || isProcessing) return;
 
-		const newFrames: Frame[] = [];
-		const canvas = document.createElement('canvas');
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		canvas.width = frameWidth;
-		canvas.height = frameHeight;
-
-		for (let r = 0; r < rows; r++) {
-			for (let c = 0; c < columns; c++) {
-				const x = offsetX + (c * frameWidth);
-				const y = offsetY + (r * frameHeight);
-
-				if (x + frameWidth <= image.width && y + frameHeight <= image.height) {
-					ctx.clearRect(0, 0, frameWidth, frameHeight);
-					ctx.drawImage(image, x, y, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
-					
-					const imageData = ctx.getImageData(0, 0, frameWidth, frameHeight);
-					// Remove magenta pixels (transparency)
-					for (let i = 0; i < imageData.data.length; i += 4) {
-						if (imageData.data[i] === 255 && 
-							imageData.data[i + 1] === 0 && 
-							imageData.data[i + 2] === 255) {
-							imageData.data[i + 3] = 0; // Make transparent
-						}
-					}
-
-					const frame = new Frame(imageData);
-					newFrames.push(frame);
-				}
+		setIsProcessing(true);
+		try {
+			// Get full image data
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			if (!ctx) {
+				setIsProcessing(false);
+				return;
 			}
-		}
 
-		setFrames([...frames, ...newFrames]);
-		createThingData([...frames, ...newFrames]);
-	}, [image, offsetX, offsetY, frameWidth, frameHeight, columns, rows, frames]);
+			canvas.width = image.width;
+			canvas.height = image.height;
+			ctx.drawImage(image, 0, 0);
+			const fullImageData = ctx.getImageData(0, 0, image.width, image.height);
+
+			// Process frames in worker (parallel processing)
+			const frameImageDataList = await imageProcessingService.cutFrames(
+				fullImageData,
+				offsetX,
+				offsetY,
+				frameWidth,
+				frameHeight,
+				columns,
+				rows
+			);
+
+			// Convert ImageData to Frame objects
+			const newFrames: Frame[] = frameImageDataList.map(imageData => new Frame(imageData));
+
+			setFrames([...frames, ...newFrames]);
+			createThingData([...frames, ...newFrames]);
+			setIsProcessing(false);
+		} catch (error: any) {
+			showError(`Failed to cut frames: ${error.message}`);
+			setIsProcessing(false);
+		}
+	}, [image, offsetX, offsetY, frameWidth, frameHeight, columns, rows, frames, isProcessing, imageProcessingService, showError]);
 
 	// Create thing data from frames
 	const createThingData = useCallback((frameList: Frame[]) => {
@@ -230,7 +276,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => 
 
 	const handleMouseMove = useCallback((e: React.MouseEvent) => {
 		if (!isDragging || !dragStart || !gridOverlayRef.current) return;
-		const rect = gridOverlayRef.current.getBoundingClientRect();
 		const newX = Math.max(0, Math.min(image!.width - (columns * frameWidth), offsetX + (e.clientX - dragStart.x) / zoom));
 		const newY = Math.max(0, Math.min(image!.height - (rows * frameHeight), offsetY + (e.clientY - dragStart.y) / zoom));
 		setOffsetX(newX);
@@ -294,6 +339,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => 
 	useEffect(() => {
 		createThingData(frames);
 	}, [frames, createThingData]);
+
+	// Cleanup worker pool on unmount
+	useEffect(() => {
+		return () => {
+			// Worker pool is singleton and will be cleaned up when app closes
+			// Individual cleanup not needed as pool is shared
+		};
+	}, []);
 
 	const canSave = thingData !== null && frames.length > 0;
 
@@ -414,8 +467,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => 
 						<span>{zoom.toFixed(1)}x</span>
 					</div>
 
-					<Button onClick={handleCutFrames} disabled={!image}>
-						Crop
+					<Button onClick={handleCutFrames} disabled={!image || isProcessing}>
+						{isProcessing ? 'Processing...' : 'Crop'}
 					</Button>
 				</div>
 
@@ -463,7 +516,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose }) => 
 			{/* Frame List */}
 			<div className="animation-editor-frames">
 				<div className="frames-list">
-					{frames.map((frame, index) => (
+					{frames.map((_frame, index) => (
 						<div
 							key={index}
 							className={`frame-item ${index === selectedFrameIndex ? 'selected' : ''}`}
