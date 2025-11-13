@@ -148,7 +148,41 @@ export const Toolbar: React.FC = () => {
       const dirname = path ? path.dirname : ((p: string) => p.substring(0, p.lastIndexOf('/') || p.lastIndexOf('\\')));
       const defaultDir = result.filePaths.length > 0 ? dirname(result.filePaths[0]) : undefined;
       
-      // If DAT file is missing, prompt for it
+      // Helper function to find corresponding file using IPC
+      const findCorrespondingFile = async (selectedFile: string, targetExt: string): Promise<string | null> => {
+        try {
+          const electronAPI = (window as any).electronAPI;
+          if (electronAPI && electronAPI.findCorrespondingFile) {
+            const result = await electronAPI.findCorrespondingFile(selectedFile, targetExt);
+            if (result.success && result.exists && result.filePath) {
+              console.log(`[Toolbar] Auto-found ${targetExt} file: ${result.filePath}`);
+              return result.filePath;
+            }
+          }
+        } catch (error) {
+          console.error('Error checking for corresponding file:', error);
+        }
+        
+        return null;
+      };
+      
+      // If DAT file is missing, try to find it automatically from SPR file
+      if (!datFile && sprFile) {
+        const autoDatFile = await findCorrespondingFile(sprFile, '.dat');
+        if (autoDatFile) {
+          datFile = autoDatFile;
+        }
+      }
+      
+      // If SPR file is missing, try to find it automatically from DAT file
+      if (!sprFile && datFile) {
+        const autoSprFile = await findCorrespondingFile(datFile, '.spr');
+        if (autoSprFile) {
+          sprFile = autoSprFile;
+        }
+      }
+      
+      // If DAT file is still missing, prompt for it
       if (!datFile) {
         const datResult = await fileDialog.showOpenDialog({
           title: 'Select DAT File',
@@ -171,7 +205,7 @@ export const Toolbar: React.FC = () => {
         }
       }
       
-      // If SPR file is missing, prompt for it
+      // If SPR file is still missing, prompt for it
       if (!sprFile) {
         const sprResult = await fileDialog.showOpenDialog({
           title: 'Select SPR File',

@@ -713,6 +713,29 @@ function setupIpcHandlers(): void {
       return { success: false, error: error.message || 'Failed to load OBD file' };
     }
   });
+
+  // Check if file exists and find corresponding file (for auto-loading .dat/.spr pairs)
+  ipcMain.handle('file:findCorresponding', async (event, filePath: string, targetExt: string) => {
+    try {
+      if (!filePath || !targetExt) {
+        return { success: false, error: 'Invalid parameters' };
+      }
+
+      const dir = path.dirname(filePath);
+      const baseName = path.basename(filePath, path.extname(filePath));
+      const correspondingFile = path.join(dir, baseName + targetExt);
+
+      const exists = fs.existsSync(correspondingFile);
+      return {
+        success: true,
+        exists,
+        filePath: exists ? correspondingFile : null,
+      };
+    } catch (error: any) {
+      console.error('Error finding corresponding file:', error);
+      return { success: false, error: error.message || 'Failed to find corresponding file' };
+    }
+  });
 }
 
 async function initializeBackend(): Promise<void> {
