@@ -210,5 +210,47 @@ export class CommandFactory {
       frameGroups,
     };
   }
+
+  static createOptimizeSpritesCommand(): CommandData {
+    return {
+      type: 'OptimizeSpritesCommand',
+    };
+  }
+
+  static createOptimizeFrameDurationsCommand(
+    items: boolean,
+    itemsMinimumDuration: number,
+    itemsMaximumDuration: number,
+    outfits: boolean,
+    outfitsMinimumDuration: number,
+    outfitsMaximumDuration: number,
+    effects: boolean,
+    effectsMinimumDuration: number,
+    effectsMaximumDuration: number
+  ): CommandData {
+    return {
+      type: 'OptimizeFrameDurationsCommand',
+      items,
+      itemsMinimumDuration,
+      itemsMaximumDuration,
+      outfits,
+      outfitsMinimumDuration,
+      outfitsMaximumDuration,
+      effects,
+      effectsMinimumDuration,
+      effectsMaximumDuration,
+    };
+  }
+
+  static createConvertFrameGroupsCommand(
+    frameGroups: boolean,
+    mounts: boolean
+  ): CommandData {
+    return {
+      type: 'ConvertFrameGroupsCommand',
+      frameGroups,
+      mounts,
+    };
+  }
 }
 

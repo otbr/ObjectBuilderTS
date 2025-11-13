@@ -1,0 +1,33 @@
+.sprites-optimizer-window {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.optimizer-content {
+	flex: 1;
+	padding: 1rem;
+}
+
+.optimizer-content p {
+	margin: 0.5rem 0;
+}
+
+.optimizer-content ul {
+	margin: 0.5rem 0;
+	padding-left: 1.5rem;
+}
+
+.warning-text {
+	color: #ff6b6b;
+	font-weight: 500;
+}
+
+.dialog-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border-color);
+}
+

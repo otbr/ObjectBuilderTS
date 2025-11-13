@@ -1,0 +1,57 @@
+.frame-groups-converter-window {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.converter-content {
+	flex: 1;
+	padding: 1rem;
+}
+
+.converter-content p {
+	margin: 0.5rem 0;
+}
+
+.converter-content ul {
+	margin: 0.5rem 0;
+	padding-left: 1.5rem;
+}
+
+.converter-options {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin: 1rem 0;
+	padding: 0.75rem;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	background: var(--panel-bg);
+}
+
+.option-group {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	cursor: pointer;
+}
+
+.option-group input[type="radio"],
+.option-group input[type="checkbox"] {
+	cursor: pointer;
+}
+
+.warning-text {
+	color: #ff6b6b;
+	font-weight: 500;
+	margin-top: 1rem;
+}
+
+.dialog-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border-color);
+}
+

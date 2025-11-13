@@ -1,0 +1,77 @@
+.frame-durations-optimizer-window {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.optimizer-content {
+	flex: 1;
+	padding: 1rem;
+	overflow-y: auto;
+}
+
+.optimizer-content p {
+	margin: 0.5rem 0;
+}
+
+.category-section {
+	margin: 1rem 0;
+	padding: 0.75rem;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	background: var(--panel-bg);
+}
+
+.category-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.category-header input[type="checkbox"] {
+	cursor: pointer;
+}
+
+.duration-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin-top: 0.75rem;
+	padding-left: 1.5rem;
+}
+
+.duration-control {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.duration-control label {
+	min-width: 150px;
+}
+
+.duration-control input[type="number"] {
+	width: 100px;
+	padding: 0.25rem 0.5rem;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	background: var(--input-bg);
+	color: var(--text-color);
+}
+
+.warning-text {
+	color: #ff6b6b;
+	font-weight: 500;
+	margin-top: 1rem;
+}
+
+.dialog-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border-color);
+}
+

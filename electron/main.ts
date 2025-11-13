@@ -552,6 +552,11 @@ function setupIpcHandlers(): void {
         'UnloadFilesCommand': 'files/UnloadFilesCommand',
         'SetSpriteDimensionCommand': 'SetSpriteDimensionCommand',
         'LoadVersionsCommand': 'LoadVersionsCommand',
+        'CompileAsCommand': 'files/CompileAsCommand',
+        'SettingsCommand': 'SettingsCommand',
+        'OptimizeSpritesCommand': 'sprites/OptimizeSpritesCommand',
+        'OptimizeFrameDurationsCommand': 'things/OptimizeFrameDurationsCommand',
+        'ConvertFrameGroupsCommand': 'things/ConvertFrameGroupsCommand',
       };
 
       const commandPath = commandMap[typeName];
@@ -658,6 +663,20 @@ function setupIpcHandlers(): void {
       sendLogCommand(8, errorMsg, error.stack, 'IPC:getSpriteDimensions');
       console.error('Error getting sprite dimensions:', error);
       return { success: false, error: error.message || 'Failed to get sprite dimensions' };
+    }
+  });
+
+  // Write temporary file (for Slicer sprite import)
+  ipcMain.handle('writeTempFile', async (event, fileName: string, data: ArrayBuffer) => {
+    try {
+      const os = require('os');
+      const tempDir = os.tmpdir();
+      const tempPath = path.join(tempDir, fileName);
+      fs.writeFileSync(tempPath, Buffer.from(data));
+      return tempPath;
+    } catch (error: any) {
+      sendLogCommand(8, `Error writing temp file: ${error.message}`, error.stack, 'IPC:writeTempFile');
+      throw error;
     }
   });
 
@@ -1053,12 +1072,54 @@ function createMenu(): void {
             }
           },
         },
+        { type: 'separator' },
+        {
+          label: 'Animation Editor',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'tools-animation-editor');
+            }
+          },
+        },
         {
           label: 'Object Viewer',
           accelerator: 'CmdOrCtrl+Shift+O',
           click: () => {
             if (mainWindow) {
               mainWindow.webContents.send('menu-action', 'tools-object-viewer');
+            }
+          },
+        },
+        {
+          label: 'Slicer',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'tools-slicer');
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Sprites Optimizer',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'tools-sprites-optimizer');
+            }
+          },
+        },
+        {
+          label: 'Frame Durations Optimizer',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'tools-frame-durations-optimizer');
+            }
+          },
+        },
+        {
+          label: 'Frame Groups Converter',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'tools-frame-groups-converter');
             }
           },
         },

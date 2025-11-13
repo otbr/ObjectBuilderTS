@@ -18,6 +18,10 @@ import { LogWindow } from './LogWindow';
 import { FileInfoPanel } from './FileInfoPanel';
 import { ObjectViewer } from './ObjectViewer';
 import { AnimationEditor } from './AnimationEditor/AnimationEditor';
+import { Slicer } from './Slicer';
+import { SpritesOptimizerWindow } from './SpritesOptimizerWindow';
+import { FrameDurationsOptimizerWindow } from './FrameDurationsOptimizerWindow';
+import { FrameGroupsConverterWindow } from './FrameGroupsConverterWindow';
 import { Button } from './Button';
 import { AppStateProvider } from '../contexts/AppStateContext';
 import { ProgressProvider } from '../contexts/ProgressContext';
@@ -45,6 +49,10 @@ const MainWindowContent: React.FC = () => {
   const [showFileInfoPanel, setShowFileInfoPanel] = useState(false); // Off by default
   const [showObjectViewer, setShowObjectViewer] = useState(false);
   const [showAnimationEditor, setShowAnimationEditor] = useState(false);
+  const [showSlicer, setShowSlicer] = useState(false);
+  const [showSpritesOptimizer, setShowSpritesOptimizer] = useState(false);
+  const [showFrameDurationsOptimizer, setShowFrameDurationsOptimizer] = useState(false);
+  const [showFrameGroupsConverter, setShowFrameGroupsConverter] = useState(false);
   const [exportType, setExportType] = useState<'things' | 'sprites'>('things');
   const windowRef = useRef<HTMLDivElement>(null);
 
@@ -87,6 +95,8 @@ const MainWindowContent: React.FC = () => {
   useHotkey('WINDOW_LOG', () => setShowLogWindow(true));
   useHotkey('WINDOW_ABOUT', () => setShowAboutDialog(true));
   useHotkey('TOOLS_ANIMATION_EDITOR', () => setShowAnimationEditor(true));
+  useHotkey('TOOLS_SLICER', () => setShowSlicer(true));
+  useHotkey('TOOLS_SPRITES_OPTIMIZER', () => setShowSpritesOptimizer(true));
 
   // Listen for menu actions
   useEffect(() => {
@@ -115,6 +125,18 @@ const MainWindowContent: React.FC = () => {
           break;
         case 'tools-animation-editor':
           setShowAnimationEditor(true);
+          break;
+        case 'tools-slicer':
+          setShowSlicer(true);
+          break;
+        case 'tools-sprites-optimizer':
+          setShowSpritesOptimizer(true);
+          break;
+        case 'tools-frame-durations-optimizer':
+          setShowFrameDurationsOptimizer(true);
+          break;
+        case 'tools-frame-groups-converter':
+          setShowFrameGroupsConverter(true);
           break;
         case 'file-import':
           setShowImportDialog(true);
@@ -356,6 +378,33 @@ const MainWindowContent: React.FC = () => {
           </div>
         </div>
       )}
+      {showSlicer && (
+        <div className="object-viewer-overlay" title="object-viewer-overlay">
+          <div className="object-viewer-container" title="object-viewer-container">
+            <div className="object-viewer-header" title="object-viewer-header">
+              <h2 title="h2">Slicer</h2>
+              <Button variant="secondary" onClick={() => setShowSlicer(false)}>
+                Close
+              </Button>
+            </div>
+            <div className="object-viewer-content-wrapper" title="object-viewer-content-wrapper">
+              <Slicer onClose={() => setShowSlicer(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+      <SpritesOptimizerWindow
+        open={showSpritesOptimizer}
+        onClose={() => setShowSpritesOptimizer(false)}
+      />
+      <FrameDurationsOptimizerWindow
+        open={showFrameDurationsOptimizer}
+        onClose={() => setShowFrameDurationsOptimizer(false)}
+      />
+      <FrameGroupsConverterWindow
+        open={showFrameGroupsConverter}
+        onClose={() => setShowFrameGroupsConverter(false)}
+      />
     </>
   );
 };

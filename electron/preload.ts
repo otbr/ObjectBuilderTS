@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadOBDFile: (filePath: string) => ipcRenderer.invoke('loadOBDFile', filePath),
   // Get sprite dimensions list
   getSpriteDimensions: () => ipcRenderer.invoke('getSpriteDimensions'),
+  // Write temporary file (for Slicer)
+  writeTempFile: (fileName: string, data: ArrayBuffer) => ipcRenderer.invoke('writeTempFile', fileName, data),
   // Find corresponding file (e.g., .dat for .spr)
   findCorrespondingFile: (filePath: string, targetExt: string) => ipcRenderer.invoke('file:findCorresponding', filePath, targetExt),
 });

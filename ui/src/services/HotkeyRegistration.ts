@@ -41,6 +41,9 @@ export function registerDefaultHotkeys(): void {
   manager.registerAction('TOOLS_ANIMATION_EDITOR', 'Animation Editor', 'Tools', null);
   manager.registerAction('TOOLS_OBJECT_VIEWER', 'Object Viewer', 'Tools', null);
   manager.registerAction('TOOLS_SLICER', 'Slicer', 'Tools', null);
+  manager.registerAction('TOOLS_SPRITES_OPTIMIZER', 'Sprites Optimizer', 'Tools', null);
+  manager.registerAction('TOOLS_FRAME_DURATIONS_OPTIMIZER', 'Frame Durations Optimizer', 'Tools', null);
+  manager.registerAction('TOOLS_FRAME_GROUPS_CONVERTER', 'Frame Groups Converter', 'Tools', null);
   manager.registerAction('TOOLS_ASSET_STORE', 'Asset Store', 'Tools', null);
 
   // Thing operations
