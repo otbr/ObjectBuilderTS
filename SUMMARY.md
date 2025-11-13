@@ -11,7 +11,7 @@
 - File I/O operations
 - Image processing
 
-### UI: 90% ✅
+### UI: 95% ✅
 - React 18 with TypeScript
 - Electron desktop app
 - Core components implemented
@@ -20,6 +20,11 @@
 - Error handling
 - Window state management
 - Menu system
+- SpriteList auto-loading from selected things
+- PreviewPanel with frame group selector
+- ExportDialog with app state integration
+- PreviewCanvas multi-sprite rendering
+- Electron IPC communication fixed
 
 ## 📊 Statistics
 
@@ -52,11 +57,10 @@ See [DOCUMENTATION.md](./DOCUMENTATION.md) for complete documentation index.
 - Window state management
 - Menu bar with shortcuts
 
-## ⏳ Remaining Work (~7%)
+## ⏳ Remaining Work (~5%)
 
-- Enhanced sprite rendering
-- Animation support
-- Additional utility dialogs
+- Animation support (partially implemented)
+- Canvas module rebuild for Electron (`npm run rebuild`)
 - Testing suite
 - Performance optimization
 

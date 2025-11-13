@@ -21,12 +21,18 @@
 - Menu system integrated
 - Import/Export/Merge dialogs integrated
 - CommandFactory extended with import/export/merge commands
+- SpriteList auto-loads sprites from selected things
+- PreviewPanel with frame group selector
+- ExportDialog connected to app state
+- PreviewCanvas multi-sprite composition working
+- Electron IPC handlers fixed and working
+- Canvas module rebuild support added
 
 ### Remaining Work: ~5%
-- Enhanced sprite rendering (multi-sprite composition)
-- Animation support in preview
+- Animation support in preview (partially implemented)
 - Testing and validation
 - Performance optimization
+- Canvas module needs rebuild for Electron (run `npm run rebuild`)
 
 ## 📁 Project Structure
 

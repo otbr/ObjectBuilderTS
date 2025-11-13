@@ -128,26 +128,12 @@ function createWindow(): void {
   });
 }
 
-async function initializeBackend(): Promise<void> {
-  try {
-    // Import and initialize backend
-    const { ObjectBuilderApp } = require('../../main');
-    backendApp = new ObjectBuilderApp();
-    console.log('Backend initialized');
-    
-    // Set up IPC handlers after backend is ready
-    setupIpcHandlers();
-  } catch (error) {
-    console.error('Failed to initialize backend:', error);
-  }
-}
-
-// IPC Handlers
+// IPC Handlers - Set up BEFORE backend initialization so they're always available
 function setupIpcHandlers(): void {
   // Send command to backend
   ipcMain.handle('worker:sendCommand', async (event, commandData: any) => {
-    if (!backendApp || !backendApp.communicator) {
-      return { success: false, error: 'Backend not initialized' };
+    if (!backendApp || !(backendApp as any).communicator) {
+      return { success: false, error: 'Backend not initialized. Please check console for errors.' };
     }
 
     try {
@@ -160,7 +146,7 @@ function setupIpcHandlers(): void {
 
       // Create command instance from data
       const command = new CommandClass(...Object.values(commandData).filter((_, i) => i !== 0));
-      backendApp.communicator.handleCommand(command);
+      (backendApp as any).communicator.handleCommand(command);
       
       return { success: true };
     } catch (error: any) {
@@ -174,7 +160,8 @@ function setupIpcHandlers(): void {
     // Dynamic import of command classes
     // This is a simplified version - in production, use a command registry
     try {
-      const commandsPath = '../../ob/commands';
+      // Use path relative to dist directory
+      const commandsPath = path.join(__dirname, '../ob/commands');
       const commandMap: { [key: string]: string } = {
         'LoadFilesCommand': 'files/LoadFilesCommand',
         'CreateNewFilesCommand': 'files/CreateNewFilesCommand',
@@ -184,30 +171,24 @@ function setupIpcHandlers(): void {
         'UpdateThingCommand': 'things/UpdateThingCommand',
         'FindThingCommand': 'things/FindThingCommand',
         'GetSpriteListCommand': 'sprites/GetSpriteListCommand',
+        'ImportThingsFromFilesCommand': 'things/ImportThingsFromFilesCommand',
+        'ImportSpritesFromFileCommand': 'sprites/ImportSpritesFromFileCommand',
+        'ExportThingCommand': 'things/ExportThingCommand',
+        'ExportSpritesCommand': 'sprites/ExportSpritesCommand',
+        'MergeFilesCommand': 'files/MergeFilesCommand',
       };
 
-      const path = commandMap[typeName];
-      if (path) {
-        return require(`${commandsPath}/${path}`)[typeName];
+      const commandPath = commandMap[typeName];
+      if (commandPath) {
+        const fullPath = path.join(commandsPath, `${commandPath}.js`);
+        const commandModule = require(fullPath);
+        return commandModule[typeName] || commandModule.default;
       }
       return null;
     } catch (error) {
       console.error(`Failed to load command class ${typeName}:`, error);
       return null;
     }
-  }
-
-  // Listen for commands from backend
-  if (backendApp && backendApp.communicator) {
-    backendApp.communicator.on('command', (command: WorkerCommand) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Send command to renderer process
-        mainWindow.webContents.send('worker:command', {
-          type: command.constructor.name,
-          data: command,
-        });
-      }
-    });
   }
 
   // File dialog handlers
@@ -247,8 +228,52 @@ function setupIpcHandlers(): void {
   });
 }
 
+async function initializeBackend(): Promise<void> {
+  try {
+    // Import and initialize backend
+    // Use require for CommonJS modules in Electron
+    const mainModule = require(path.join(__dirname, '../main.js'));
+    const ObjectBuilderApp = mainModule.ObjectBuilderApp || mainModule.default;
+    if (ObjectBuilderApp) {
+      backendApp = new ObjectBuilderApp();
+      console.log('Backend initialized');
+      
+      // Listen for commands from backend
+      if (backendApp && (backendApp as any).communicator) {
+        (backendApp as any).communicator.on('command', (command: WorkerCommand) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            // Send command to renderer process
+            mainWindow.webContents.send('worker:command', {
+              type: command.constructor.name,
+              data: command,
+            });
+          }
+        });
+      }
+    }
+  } catch (error: any) {
+    console.error('Failed to initialize backend:', error);
+    // If canvas module is missing, provide helpful error message
+    if (error.message && error.message.includes('canvas.node')) {
+      console.error('\n=== CANVAS MODULE ERROR ===');
+      console.error('The canvas module needs to be rebuilt for Electron.');
+      console.error('Please run: npm run rebuild');
+      console.error('Or: npm install canvas --build-from-source');
+      console.error('===========================\n');
+    }
+    // Continue even if backend fails - UI can still work for some features
+  }
+}
+
 app.whenReady().then(async () => {
+  // Set up IPC handlers FIRST, before backend initialization
+  // This ensures handlers are always available even if backend fails
+  setupIpcHandlers();
+  
+  // Then initialize backend
   await initializeBackend();
+  
+  // Create window and menu
   createWindow();
   createMenu();
 

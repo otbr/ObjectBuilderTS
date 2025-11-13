@@ -5,7 +5,7 @@
 
 ## ✅ Recently Completed
 
-### UI Framework Integration (In Progress)
+### UI Framework Integration (95% Complete)
 - ✅ React 18 with TypeScript setup
 - ✅ Vite build configuration
 - ✅ Base UI components (MainWindow, Toolbar, Panels)
@@ -13,11 +13,11 @@
 - ✅ Worker communication service
 - ✅ State management hooks
 - ✅ ThingList component with data fetching
-- ✅ SpriteList component with data fetching
+- ✅ SpriteList component with data fetching and automatic loading from selected things
 - ✅ ThingEditor form component
 - ✅ File dialog service (Electron)
 - ✅ Command factory for UI-backend communication
-- ✅ Preview canvas rendering component
+- ✅ Preview canvas rendering component with multi-sprite composition
 - ✅ Progress indicators for file operations
 - ✅ Toast notifications for error handling
 - ✅ Window state management (position, size, maximized)
@@ -33,7 +33,12 @@
 - ✅ Menu items added for Import (Ctrl+I), Export (Ctrl+E), and Merge Files
 - ✅ CommandFactory extended with import/export/merge command creators
 - ✅ All dialogs connected to backend via CommandFactory
-- ⚠️ Compilation testing - Many TypeScript errors identified (see COMPILATION_STATUS.md)
+- ✅ PreviewPanel enhanced with frame group selector (DEFAULT/WALKING for outfits)
+- ✅ ExportDialog connected to app state for selected thing/sprite IDs
+- ✅ PreviewCanvas improved sprite data format handling (Map, Array, Object)
+- ✅ Electron IPC handlers fixed - registered before backend initialization
+- ✅ Canvas module rebuild script added for Electron compatibility
+- ✅ Backend initialization error handling improved
 
 ### Backend/Worker System (100% Complete)
 - ✅ `ObjectBuilderWorker.ts` - Complete worker implementation with all callbacks
