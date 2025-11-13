@@ -1073,6 +1073,14 @@ function createMenu(): void {
           },
         },
         {
+          label: 'Import Thing...',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-action', 'file-import-thing');
+            }
+          },
+        },
+        {
           label: 'Export...',
           accelerator: 'CmdOrCtrl+E',
           click: () => {

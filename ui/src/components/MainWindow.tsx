@@ -24,6 +24,7 @@ import { FrameDurationsOptimizerWindow } from './FrameDurationsOptimizerWindow';
 import { FrameGroupsConverterWindow } from './FrameGroupsConverterWindow';
 import { ClientVersionsWindow } from './ClientVersionsWindow';
 import { LookGenerator } from './LookGenerator';
+import { ImportThingWindow } from './ImportThingWindow';
 import { Button } from './Button';
 import { AppStateProvider } from '../contexts/AppStateContext';
 import { ProgressProvider } from '../contexts/ProgressContext';
@@ -57,6 +58,7 @@ const MainWindowContent: React.FC = () => {
   const [showFrameGroupsConverter, setShowFrameGroupsConverter] = useState(false);
   const [showClientVersions, setShowClientVersions] = useState(false);
   const [showLookGenerator, setShowLookGenerator] = useState(false);
+  const [showImportThingWindow, setShowImportThingWindow] = useState(false);
   const [exportType, setExportType] = useState<'things' | 'sprites'>('things');
   const windowRef = useRef<HTMLDivElement>(null);
 
@@ -150,6 +152,9 @@ const MainWindowContent: React.FC = () => {
           break;
         case 'file-import':
           setShowImportDialog(true);
+          break;
+        case 'file-import-thing':
+          setShowImportThingWindow(true);
           break;
         case 'file-export':
           // Determine export type based on what's selected
@@ -261,6 +266,29 @@ const MainWindowContent: React.FC = () => {
             hideProgress();
             showError(error.message || 'Failed to import');
             console.error('Import error:', error);
+          }
+        }}
+      />
+      <ImportThingWindow
+        open={showImportThingWindow}
+        onClose={() => setShowImportThingWindow(false)}
+        onConfirm={async (thingData, filePath) => {
+          try {
+            showProgress('Importing thing...');
+            // Import the single thing from the OBD file
+            const command = CommandFactory.createImportThingsFromFilesCommand([filePath]);
+            const result = await worker.sendCommand(command);
+            hideProgress();
+            if (result.success) {
+              showSuccess('Successfully imported thing');
+            } else {
+              showError(result.error || 'Failed to import thing');
+            }
+            setShowImportThingWindow(false);
+          } catch (error: any) {
+            hideProgress();
+            showError(error.message || 'Failed to import thing');
+            console.error('Import thing error:', error);
           }
         }}
       />

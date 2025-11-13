@@ -18,7 +18,7 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 - ❌ **Asset Store** (`AssetStore`) - Browse and import assets from online store
 - ✅ **Look Generator** (`LookGenerator`) - Generate character looks/outfits
 - ✅ **Client Versions Window** (`ClientVersionsWindow`) - Manage client version definitions
-- ❌ **Import Thing Window** (`ImportThingWindow`) - Advanced import dialog with preview
+- ✅ **Import Thing Window** (`ImportThingWindow`) - Advanced import dialog with preview
 - ✅ **Files Info Panel** (`FilesInfoPanel`) - Display file information and statistics
 
 ### Optimizer Windows
@@ -336,14 +336,14 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 
 ## 📊 Implementation Progress
 
-**Overall Completion: ~88%**
+**Overall Completion: ~89%**
 
 - **Backend**: 100% ✅
 - **Core UI**: 96% ✅
-- **Dialogs**: 80% 🟡
+- **Dialogs**: 85% 🟡
 - **Tools**: 70% 🟡
 - **Hotkeys**: 95% ✅
-- **Advanced Features**: 62% 🟡
+- **Advanced Features**: 63% 🟡
 
 ---
 
@@ -367,4 +367,5 @@ This document lists all features from the original ActionScript/Adobe AIR versio
 - ✅ Implemented Client Versions Window (manage version definitions)
 - ✅ Implemented Virtual Scrolling for ThingList (performance improvement for large lists)
 - ✅ Implemented Look Generator (generate character look XML with copy/paste support)
+- ✅ Implemented Import Thing Window (advanced import dialog with preview for single OBD files)
 
