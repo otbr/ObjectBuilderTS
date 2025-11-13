@@ -19,30 +19,52 @@ The TypeScript conversion is **~93% complete**. Most of the backend functionalit
 
 ### Structure
 
-This folder preserves the original directory structure from the `src/` folder:
+This folder contains **all legacy files** from the original Adobe AIR application, including source code, build outputs, runtime files, and configuration:
 
 ```
 actionscript-blueprint/
-├── com/              # Third-party libraries (mignari)
-├── gamelib/          # Game library utilities
-├── nail/             # Nail framework components
-├── ob/               # Object Builder specific code
-│   ├── commands/     # Command pattern implementations
-│   ├── components/   # UI components (MXML)
-│   ├── hotkeys/      # Hotkey management
-│   └── ...
-├── objectview/       # Object viewer components
-├── otlib/            # Open Tibia library
-│   ├── animation/    # Animation system
-│   ├── components/   # UI components
-│   ├── core/         # Core classes
-│   ├── things/       # Thing type system
-│   ├── sprites/      # Sprite system
-│   └── ...
-├── slicer/           # Sprite slicer tool
-├── store/            # Asset store
-├── ObjectBuilder.mxml # Main application file
-└── ObjectBuilderWorker.as # Worker thread implementation
+├── Adobe AIR/        # Adobe AIR runtime files
+├── bin/              # Build output (compiled SWF, EXE, metadata)
+├── bin-debug/        # Debug build output
+├── META-INF/         # AIR package metadata
+├── libs/             # ActionScript compiled libraries (.swc files)
+├── locale/           # Localization files (en_US, es_ES, pt_BR)
+├── workerswfs/       # Worker thread SWF files
+│
+├── Source Code:
+│   ├── com/          # Third-party libraries (mignari)
+│   ├── gamelib/      # Game library utilities
+│   ├── nail/         # Nail framework components
+│   ├── ob/           # Object Builder specific code
+│   │   ├── commands/ # Command pattern implementations
+│   │   ├── components/ # UI components (MXML)
+│   │   ├── hotkeys/  # Hotkey management
+│   │   └── ...
+│   ├── objectview/   # Object viewer components
+│   ├── otlib/        # Open Tibia library
+│   │   ├── animation/ # Animation system
+│   │   ├── components/ # UI components
+│   │   ├── core/     # Core classes
+│   │   ├── things/   # Thing type system
+│   │   ├── sprites/  # Sprite system
+│   │   └── ...
+│   ├── slicer/       # Sprite slicer tool
+│   ├── store/        # Asset store
+│   ├── ObjectBuilder.mxml # Main application file
+│   └── ObjectBuilderWorker.as # Worker thread implementation
+│
+├── Configuration Files:
+│   ├── asconfig.json # ActionScript compiler configuration
+│   ├── ObjectBuilder-app.xml # AIR application descriptor
+│   ├── ObjectBuilder.css # Application stylesheet
+│   ├── sprites.xml   # Default sprite configuration
+│   └── versions.xml  # Default version configuration
+│
+└── Compiled Files:
+    ├── ObjectBuilder.exe # Packaged AIR executable
+    ├── ObjectBuilder.swf # Compiled main application
+    ├── ObjectBuilderWorker.swf # Compiled worker
+    └── mimetype # AIR package mimetype
 ```
 
 ### File Types
@@ -68,10 +90,48 @@ When working on this project:
 - File operations use Node.js `fs` instead of AIR File API
 - Image processing uses `sharp`/`canvas` instead of Flash BitmapData
 
-### Related Files
+### Complete List of Legacy Files
 
-- `asconfig.json` - Original ActionScript compiler configuration (legacy)
-- `src/ObjectBuilder-app.xml` - Original AIR application descriptor (legacy)
+This folder contains **all files** from the original Adobe AIR application:
+
+#### Source Code
+- **244 ActionScript files** (`.as` and `.mxml`) - Original source code
+- All source directories preserved with original structure
+
+#### Adobe AIR Runtime
+- `Adobe AIR/` - Adobe AIR runtime DLLs and support files
+- `META-INF/` - AIR package metadata and signatures
+- `mimetype` - AIR package mimetype declaration
+
+#### Build Output
+- `bin/` - Production build output (SWF, EXE, icons, metadata)
+- `bin-debug/` - Debug build output
+- `ObjectBuilder.exe` - Packaged AIR executable
+- `ObjectBuilder.swf` - Compiled main application
+- `ObjectBuilderWorker.swf` - Compiled worker thread
+
+#### Libraries
+- `libs/` - ActionScript compiled libraries (`.swc` files):
+  - `blooddy_crypto.swc` - Crypto library
+  - `mignari_assets.swc` - Mignari assets library
+  - `mignari_core.swc` - Mignari core library
+  - `mignari.swc` - Mignari main library
+  - `NailLib.swc` - Nail framework library
+
+#### Configuration
+- `asconfig.json` - ActionScript compiler configuration
+- `ObjectBuilder-app.xml` - AIR application descriptor
+- `ObjectBuilder.css` - Application stylesheet
+- `locale/` - Localization files (English, Spanish, Portuguese)
+- `sprites.xml` - Default sprite configuration
+- `versions.xml` - Default version configuration
+
+#### Workers
+- `workerswfs/` - Worker thread SWF files
+- `Workers.as` - Worker definitions
+
+#### Other
+- `dsound.dll` - DirectSound library (legacy Windows dependency)
 
 ### Original Technology Stack
 
