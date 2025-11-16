@@ -30,8 +30,8 @@ export const FindDialog: React.FC<FindDialogProps> = ({ open, onClose }) => {
   const [searching, setSearching] = useState(false);
   const [thingResults, setThingResults] = useState<any[]>([]);
   const [spriteResults, setSpriteResults] = useState<any[]>([]);
-  const [selectedThingIds, setSelectedThingIdsLocal] = useState<number[]>([]);
-  const [selectedSpriteIds, setSelectedSpriteIdsLocal] = useState<number[]>([]);
+  const [selectedThingIdsLocal, setSelectedThingIdsLocal] = useState<number[]>([]);
+  const [selectedSpriteIdsLocal, setSelectedSpriteIdsLocal] = useState<number[]>([]);
   
   // Property-based search for things
   const [thingProperties, setThingProperties] = useState<Record<string, boolean>>({});

@@ -133,10 +133,11 @@ export class CommandFactory {
     transparentBackground: boolean,
     jpegQuality: number
   ): CommandData {
+    // Note: format is included for UI purposes but not used by ExportSpritesCommand
+    // The format is determined from the file extension in the outputPath
     return {
       type: 'ExportSpritesCommand',
-      list: selectedIds.map(id => ({ id, path: outputPath })), // PathHelper-like structure
-      format,
+      list: selectedIds.map(id => ({ id, path: outputPath })), // PathHelper-like structure (path will be converted to nativePath)
       transparentBackground,
       jpegQuality,
     };

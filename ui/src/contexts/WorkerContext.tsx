@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { WorkerService } from '../services/WorkerService';
 
 interface WorkerContextType {
@@ -49,23 +49,23 @@ export const WorkerProvider: React.FC<WorkerProviderProps> = ({ children }) => {
     };
   }, [workerService]);
 
-  const sendCommand = async (command: any) => {
+  const sendCommand = useCallback(async (command: any) => {
     return await workerService.sendCommand(command);
-  };
+  }, [workerService]);
 
-  const onCommand = (callback: (command: any) => void) => {
+  const onCommand = useCallback((callback: (command: any) => void) => {
     workerService.onCommand(callback);
-  };
+  }, [workerService]);
+
+  const contextValue = useMemo(() => ({
+    initialized,
+    connected,
+    sendCommand,
+    onCommand,
+  }), [initialized, connected, sendCommand, onCommand]);
 
   return (
-    <WorkerContext.Provider
-      value={{
-        initialized,
-        connected,
-        sendCommand,
-        onCommand,
-      }}
-    >
+    <WorkerContext.Provider value={contextValue}>
       {children}
     </WorkerContext.Provider>
   );

@@ -1,18 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { LookType } from '../utils/LookType';
 import { Button } from './Button';
+import { PreviewCanvas } from './PreviewCanvas';
 import { useToast } from '../hooks/useToast';
+import { useWorker } from '../contexts/WorkerContext';
+import { useAppStateContext } from '../contexts/AppStateContext';
+import { CommandFactory } from '../services/CommandFactory';
 import './LookGenerator.css';
 
 interface LookGeneratorProps {
 	onClose?: () => void;
 }
 
-export const LookGenerator: React.FC<LookGeneratorProps> = ({ onClose }) => {
+const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 	const { showError, showSuccess } = useToast();
+	const worker = useWorker();
+	const { clientInfo } = useAppStateContext();
 	const [lookType, setLookType] = useState<LookType>(new LookType());
 	const [xmlOutput, setXmlOutput] = useState<string>('');
 	const [isItem, setIsItem] = useState<boolean>(false);
+	const [previewThingData, setPreviewThingData] = useState<any>(null);
+	const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
 
 	// Update XML when lookType changes
 	useEffect(() => {
@@ -20,9 +28,68 @@ export const LookGenerator: React.FC<LookGeneratorProps> = ({ onClose }) => {
 		setXmlOutput(xml || '');
 	}, [lookType]);
 
+	// Load preview outfit when outfit/item changes
+	useEffect(() => {
+		const loadPreview = async () => {
+			if (!clientInfo?.loaded) {
+				setPreviewThingData(null);
+				return;
+			}
+
+			const thingId = isItem ? lookType.item : lookType.outfit;
+			if (!thingId || thingId === 0) {
+				setPreviewThingData(null);
+				return;
+			}
+
+			setLoadingPreview(true);
+			try {
+				// Use the correct category based on whether it's an item or outfit
+				const category = isItem ? 'item' : 'outfit';
+				const command = CommandFactory.createGetThingCommand(thingId, category);
+				const result = await worker.sendCommand(command);
+				
+				if (result.success && result.data) {
+					// Create a modified thingData with outfit colors (only for outfits)
+					const thingData = { ...result.data };
+					if (thingData.thing && !isItem) {
+						// Apply outfit colors if available (only for outfits, not items)
+						thingData.outfitData = {
+							head: lookType.head,
+							body: lookType.body,
+							legs: lookType.legs,
+							feet: lookType.feet,
+							addons: lookType.addons,
+						};
+					}
+					setPreviewThingData(thingData);
+				} else {
+					console.log('Preview load result:', result);
+					setPreviewThingData(null);
+				}
+			} catch (error: any) {
+				console.error('Failed to load preview:', error);
+				setPreviewThingData(null);
+			} finally {
+				setLoadingPreview(false);
+			}
+		};
+
+		loadPreview();
+	}, [lookType.outfit, lookType.item, isItem, clientInfo, worker]);
+
 	// Handle type change (outfit/item)
 	const handleTypeChange = useCallback((value: number) => {
-		const newLookType = { ...lookType };
+		const newLookType = new LookType();
+		newLookType.outfit = lookType.outfit;
+		newLookType.item = lookType.item;
+		newLookType.head = lookType.head;
+		newLookType.body = lookType.body;
+		newLookType.legs = lookType.legs;
+		newLookType.feet = lookType.feet;
+		newLookType.addons = lookType.addons;
+		newLookType.mount = lookType.mount;
+		newLookType.corpse = lookType.corpse;
 		if (isItem) {
 			newLookType.outfit = 0;
 			newLookType.item = value;
@@ -35,7 +102,16 @@ export const LookGenerator: React.FC<LookGeneratorProps> = ({ onClose }) => {
 
 	// Handle item/outfit toggle
 	const handleItemToggle = useCallback((checked: boolean) => {
-		const newLookType = { ...lookType };
+		const newLookType = new LookType();
+		newLookType.outfit = lookType.outfit;
+		newLookType.item = lookType.item;
+		newLookType.head = lookType.head;
+		newLookType.body = lookType.body;
+		newLookType.legs = lookType.legs;
+		newLookType.feet = lookType.feet;
+		newLookType.addons = lookType.addons;
+		newLookType.mount = lookType.mount;
+		newLookType.corpse = lookType.corpse;
 		const value = checked ? newLookType.outfit : newLookType.item;
 		if (checked) {
 			newLookType.outfit = 0;
@@ -78,7 +154,18 @@ export const LookGenerator: React.FC<LookGeneratorProps> = ({ onClose }) => {
 
 	// Update property helper
 	const updateProperty = useCallback((property: keyof LookType, value: number) => {
-		setLookType({ ...lookType, [property]: value });
+		const newLookType = new LookType();
+		newLookType.outfit = lookType.outfit;
+		newLookType.item = lookType.item;
+		newLookType.head = lookType.head;
+		newLookType.body = lookType.body;
+		newLookType.legs = lookType.legs;
+		newLookType.feet = lookType.feet;
+		newLookType.addons = lookType.addons;
+		newLookType.mount = lookType.mount;
+		newLookType.corpse = lookType.corpse;
+		(newLookType as any)[property] = value;
+		setLookType(newLookType);
 	}, [lookType]);
 
 	return (
@@ -90,6 +177,40 @@ export const LookGenerator: React.FC<LookGeneratorProps> = ({ onClose }) => {
 				</div>
 
 				<div className="look-generator-content">
+					{/* Preview Section */}
+					<div className="look-generator-group look-preview-group">
+						<h3>Preview</h3>
+						<div className="look-preview-container">
+							{loadingPreview ? (
+								<div className="look-preview-loading">Loading...</div>
+							) : previewThingData ? (
+								<PreviewCanvas
+									thingData={previewThingData}
+									width={128}
+									height={128}
+									frameGroupType={0}
+									patternX={2}
+									patternY={0}
+									patternZ={0}
+									animate={false}
+									zoom={1}
+									backgroundColor="#494949"
+								/>
+							) : (
+								<div className="look-preview-placeholder">
+									<p>No preview available</p>
+									<p className="preview-hint">
+										{clientInfo?.loaded 
+											? (isItem ? lookType.item === 0 : lookType.outfit === 0)
+												? `Enter an ${isItem ? 'item' : 'outfit'} ID to see preview`
+												: `Outfit/item not found or invalid`
+											: 'Load a project to see preview'}
+									</p>
+								</div>
+							)}
+						</div>
+					</div>
+
 					{/* Look Type Controls */}
 					<div className="look-generator-group">
 						<h3>Look Type</h3>
@@ -258,4 +379,6 @@ export const LookGenerator: React.FC<LookGeneratorProps> = ({ onClose }) => {
 		</div>
 	);
 };
+
+export const LookGenerator = memo(LookGeneratorComponent);
 

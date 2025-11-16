@@ -84,6 +84,8 @@ function createWindow(): void {
       // enableWebGL: false, // Uncomment if GPU issues persist
       // Disable background throttling for better performance
       backgroundThrottling: false,
+      // Allow HMR WebSocket connections in development
+      webSecurity: process.env.NODE_ENV === 'production',
     },
     show: false, // Don't show until ready
   });
@@ -95,8 +97,18 @@ function createWindow(): void {
 
   // Load the UI
   if (process.env.NODE_ENV === 'development') {
+    // Disable cache in development for better HMR
+    mainWindow.webContents.session.clearCache();
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
+    
+    // Prevent caching of resources in development
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      // Ignore navigation errors that might occur during HMR
+      if (errorCode === -3) {
+        return;
+      }
+    });
   } else {
     // __dirname is dist/electron, so ../ui gets us to dist/ui
     const uiPath = path.join(__dirname, '../../ui/index.html');
@@ -201,6 +213,11 @@ function serializeCommand(command: WorkerCommand): any {
     serialized.data = {
       selectedIds: cmd.selectedIds || [],
       list: (cmd.sprites || []).map((sprite: any) => serializeSpriteData(sprite)),
+      totalCount: cmd.totalCount,
+      minId: cmd.minId,
+      maxId: cmd.maxId,
+      currentMin: cmd.currentMin,
+      currentMax: cmd.currentMax,
     };
   } else if (commandName === 'SetThingDataCommand') {
     const cmd = command as any;
@@ -465,6 +482,55 @@ function setupIpcHandlers(): void {
           return new PathHelper(item.nativePath || item.path, item.id || 0);
         });
         command = new CommandClass(pathHelpers);
+      } else if (commandData.type === 'ExportSpritesCommand' || commandData.type === 'ExportThingCommand') {
+        // Convert plain objects to PathHelper instances for export commands
+        const PathHelper = require(path.join(__dirname, '../../otlib/loaders/PathHelper')).PathHelper;
+        const pathHelpers = (commandData.list || []).map((item: any) => {
+          if (item instanceof PathHelper) {
+            return item;
+          }
+          // Handle both 'path' and 'nativePath' properties
+          const filePath = item.nativePath || item.path;
+          if (!filePath) {
+            throw new Error(`PathHelper requires 'path' or 'nativePath' property, got: ${JSON.stringify(item)}`);
+          }
+          return new PathHelper(filePath, item.id || 0);
+        });
+        // ExportSpritesCommand: (list, transparentBackground, jpegQuality)
+        // ExportThingCommand: (list, category, obdVersion, clientVersion, spriteSheetFlag, transparentBackground, jpegQuality)
+        if (commandData.type === 'ExportSpritesCommand') {
+          // Note: format is determined from file extension, not passed as parameter
+          command = new CommandClass(
+            pathHelpers,
+            commandData.transparentBackground !== undefined ? commandData.transparentBackground : true,
+            commandData.jpegQuality !== undefined ? commandData.jpegQuality : 80
+          );
+        } else {
+          // ExportThingCommand
+          // Note: clientVersion can be null - backend will use current version
+          const Version = require(path.join(__dirname, '../../otlib/core/Version')).Version;
+          let clientVersionObj = commandData.clientVersion;
+          
+          // If clientVersion is provided and is a plain object, convert it to Version instance
+          if (clientVersionObj && typeof clientVersionObj === 'object' && !(clientVersionObj instanceof Version)) {
+            clientVersionObj = new Version();
+            clientVersionObj.value = commandData.clientVersion.value;
+            clientVersionObj.valueStr = commandData.clientVersion.valueStr;
+            clientVersionObj.datSignature = commandData.clientVersion.datSignature;
+            clientVersionObj.sprSignature = commandData.clientVersion.sprSignature;
+            clientVersionObj.otbVersion = commandData.clientVersion.otbVersion;
+          }
+          
+          command = new CommandClass(
+            pathHelpers,
+            commandData.category || 'item',
+            commandData.obdVersion || 2,
+            clientVersionObj || null, // null is allowed - backend will use current version
+            commandData.spriteSheetFlag || 0,
+            commandData.transparentBackground !== undefined ? commandData.transparentBackground : true,
+            commandData.jpegQuality !== undefined ? commandData.jpegQuality : 80
+          );
+        }
       } else if (commandData.type === 'LoadFilesCommand') {
         // LoadFilesCommand needs: datFile, sprFile, version, extended, transparency, improvedAnimations, frameGroups
         console.log('[IPC] Creating LoadFilesCommand with:', {
@@ -991,6 +1057,12 @@ if (process.platform === 'win32') {
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 // Additional flag to prevent GPU issues
 app.commandLine.appendSwitch('disable-gpu');
+
+// Enable HMR in development
+if (process.env.NODE_ENV === 'development') {
+  // Enable remote debugging for HMR troubleshooting
+  app.commandLine.appendSwitch('remote-debugging-port', '9222');
+}
 
 app.whenReady().then(async () => {
   // Set up IPC handlers FIRST, before backend initialization

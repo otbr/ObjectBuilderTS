@@ -1300,7 +1300,9 @@ class ObjectBuilderWorker extends events_1.EventEmitter {
             spriteData.pixels = pixels; // Already a Buffer
             list.push(spriteData);
         }
-        this.sendCommand(new SetSpriteListCommand_1.SetSpriteListCommand(selectedIds, list));
+        // Calculate total count (number of IDs in the range)
+        const totalCount = last - first + 1;
+        this.sendCommand(new SetSpriteListCommand_1.SetSpriteListCommand(selectedIds, list, totalCount, first, last, min, max));
     }
     getThingData(id, category, obdVersion, clientVersion) {
         if (!ThingCategory_1.ThingCategory.getCategory(category)) {

@@ -8,6 +8,7 @@ import { SpriteStorage } from "../../otlib/sprites/SpriteStorage";
 import { Version } from "../../otlib/core/Version";
 import { ObjectBuilderSettings } from "../settings/ObjectBuilderSettings";
 import { Resources } from "../../otlib/resources/Resources";
+import { ResourceManager } from "../../otlib/resources/ResourceManager";
 import { ClientInfo } from "../../otlib/utils/ClientInfo";
 import { FrameDuration } from "../../otlib/animation/FrameDuration";
 import { FrameGroup } from "../../otlib/animation/FrameGroup";
@@ -136,6 +137,9 @@ export class ObjectBuilderWorker extends EventEmitter {
 
     constructor() {
         super();
+
+        // Initialize Resources manager
+        Resources.manager = ResourceManager.getInstance();
 
         this._communicator = new WorkerCommunicator();
         this._thingListAmount = 100;
@@ -759,7 +763,16 @@ export class ObjectBuilderWorker extends EventEmitter {
         }
 
         this.getThingCallback(thingData.id, thingData.category);
-        this.sendThingList([thingData.id], thingData.category);
+        
+        // Only send thing list if metadata is loaded
+        if (this._things && this._things.loaded) {
+            try {
+                this.sendThingList([thingData.id], thingData.category);
+            } catch (error) {
+                // Silently ignore if metadata is not loaded - thing list update is not critical
+                console.warn('Failed to send thing list after update:', error);
+            }
+        }
     }
 
     private importThingsCallback(list: ThingData[]): void {
@@ -909,8 +922,12 @@ export class ObjectBuilderWorker extends EventEmitter {
             throw new Error(Resources.getString("invalidCategory"));
         }
 
+        // Use current client version if not provided
         if (!clientVersion) {
-            throw new Error("clientVersion cannot be null");
+            if (!this._version) {
+                throw new Error("clientVersion cannot be null and no client version is loaded");
+            }
+            clientVersion = this._version;
         }
 
         if (!this._settings) {
@@ -1545,15 +1562,36 @@ export class ObjectBuilderWorker extends EventEmitter {
         for (let i = 0; i < length; i++) {
             const pathHelper = list[i];
             const filePath = pathHelper.nativePath;
-            const name = path.basename(filePath, path.extname(filePath));
-            const format = path.extname(filePath).substring(1).toLowerCase();
+            if (!filePath) {
+                console.error(`PathHelper at index ${i} has no nativePath:`, pathHelper);
+                continue;
+            }
+            
+            // If exporting multiple sprites, create individual file paths for each sprite
+            let finalFilePath = filePath;
+            if (length > 1 && pathHelper.id !== 0) {
+                // For multiple sprites, append sprite ID to filename
+                const dir = path.dirname(filePath);
+                const ext = path.extname(filePath);
+                const baseName = path.basename(filePath, ext);
+                finalFilePath = path.join(dir, `${baseName}_${pathHelper.id}${ext}`);
+            }
+            
+            const name = path.basename(finalFilePath, path.extname(finalFilePath));
+            const format = path.extname(finalFilePath).substring(1).toLowerCase();
 
             if (ImageCodec.hasImageFormat(format) && pathHelper.id !== 0) {
                 const bitmap = this._sprites.getBitmap(pathHelper.id, transparentBackground);
                 if (bitmap) {
                     const bytes = await ImageCodec.encode(bitmap, format, jpegQuality);
-                    helper.addFile(bytes, name, format, filePath);
+                    helper.addFile(bytes, name, format, finalFilePath);
+                } else {
+                    console.warn(`Sprite ${pathHelper.id} not found or has no bitmap data`);
                 }
+            } else if (pathHelper.id === 0) {
+                console.warn(`Skipping sprite ID 0 (empty sprite)`);
+            } else {
+                console.warn(`Unsupported image format: ${format} for sprite ${pathHelper.id}`);
             }
         }
 
@@ -1806,7 +1844,10 @@ export class ObjectBuilderWorker extends EventEmitter {
             list.push(spriteData);
         }
 
-        this.sendCommand(new SetSpriteListCommand(selectedIds, list));
+        // Calculate total count (number of IDs in the range)
+        const totalCount = last - first + 1;
+        
+        this.sendCommand(new SetSpriteListCommand(selectedIds, list, totalCount, first, last, min, max));
     }
 
     private getThingData(id: number, category: string, obdVersion: number, clientVersion: number): ThingData | null {

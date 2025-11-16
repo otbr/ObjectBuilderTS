@@ -4,7 +4,6 @@ import { useProgress } from '../contexts/ProgressContext';
 import { useToast } from '../hooks/useToast';
 import { useAppStateContext } from '../contexts/AppStateContext';
 import { Toolbar } from './Toolbar';
-import { PreviewPanel } from './PreviewPanel';
 import { ThingsPanel } from './ThingsPanel';
 import { SpritesPanel } from './SpritesPanel';
 import { ThingEditor } from './ThingEditor';
@@ -39,7 +38,6 @@ const MainWindowContent: React.FC = () => {
   const { showProgress, hideProgress } = useProgress();
   const { showSuccess, showError } = useToast();
   const { selectedThingIds, selectedSpriteIds, currentCategory } = useAppStateContext();
-  const [showPreviewPanel, setShowPreviewPanel] = useState(true);
   const [showThingsPanel, setShowThingsPanel] = useState(true);
   const [showSpritesPanel, setShowSpritesPanel] = useState(true);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
@@ -82,7 +80,6 @@ const MainWindowContent: React.FC = () => {
   }, []);
 
   // Register hotkey handlers
-  useHotkey('VIEW_PREVIEW', () => setShowPreviewPanel(prev => !prev));
   useHotkey('VIEW_OBJECTS', () => setShowThingsPanel(prev => !prev));
   useHotkey('VIEW_SPRITES', () => setShowSpritesPanel(prev => !prev));
   useHotkey('VIEW_FILE_INFO', () => setShowFileInfoPanel(prev => !prev));
@@ -108,9 +105,6 @@ const MainWindowContent: React.FC = () => {
   useEffect(() => {
     const handleMenuAction = (action: string) => {
       switch (action) {
-        case 'view-preview':
-          setShowPreviewPanel(prev => !prev);
-          break;
         case 'view-objects':
           setShowThingsPanel(prev => !prev);
           break;
@@ -195,13 +189,6 @@ const MainWindowContent: React.FC = () => {
       <div className="main-window" title="MainWindow component">
         <Toolbar />
         <div className="main-content" title="main-content">
-          <div className="main-left-sidebar" title="main-left-sidebar">
-            {showPreviewPanel && (
-              <PreviewPanel
-                onClose={() => setShowPreviewPanel(false)}
-              />
-            )}
-          </div>
           <div className="main-editor-area" title="main-editor-area">
             {showThingsPanel && (
               <ThingsPanel

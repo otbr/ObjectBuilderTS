@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useWorker } from '../contexts/WorkerContext';
 import { useAppStateContext } from '../contexts/AppStateContext';
 import { CommandFactory } from '../services/CommandFactory';
@@ -10,11 +10,42 @@ interface SpriteListItem {
   pixels?: Uint8Array | ArrayBuffer | Buffer | any;
 }
 
-export const SpriteList: React.FC = () => {
+// Sprite pixel cache to avoid re-processing same data
+// Using Map with manual LRU eviction for better performance
+const spritePixelCache = new Map<number, ArrayBuffer>();
+const spritePixelCacheAccessOrder = new Map<number, number>(); // Track access order for LRU
+let spritePixelCacheAccessCounter = 0;
+const MAX_SPRITE_CACHE_SIZE = 500;
+
+interface SpriteListProps {
+	onPaginationChange?: (pagination: {
+		totalCount: number;
+		minId: number;
+		maxId: number;
+		currentMin: number;
+		currentMax: number;
+	} | null) => void;
+	onNavigate?: (navigateFn: (targetId: number) => void) => void;
+}
+
+export const SpriteList: React.FC<SpriteListProps> = ({ onPaginationChange, onNavigate }) => {
   const worker = useWorker();
   const { selectedSpriteIds, setSelectedSpriteIds } = useAppStateContext();
   const [sprites, setSprites] = useState<SpriteListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState<{
+    totalCount: number;
+    minId: number;
+    maxId: number;
+    currentMin: number;
+    currentMax: number;
+  } | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const itemsContainerRef = useRef<HTMLDivElement>(null);
+  const ITEM_HEIGHT = 80; // Fixed height for each sprite item (including padding)
+  const OVERSCAN = 5; // Number of items to render outside visible area
+  const SCROLL_DEBOUNCE_MS = 16; // ~60fps for scroll updates
 
   // Listen for SetSpriteListCommand
   useEffect(() => {
@@ -34,33 +65,69 @@ export const SpriteList: React.FC = () => {
           selectedIds = command.selectedIds || [];
         }
         
-        // Transform SpriteData objects to UI format
+        // Transform SpriteData objects to UI format with caching
         const transformedList = spriteList.map((sprite: any) => {
           const id = sprite.id || 0;
           
+          // Check cache first (LRU)
+          if (spritePixelCache.has(id)) {
+            // Update access order for LRU
+            spritePixelCacheAccessOrder.set(id, ++spritePixelCacheAccessCounter);
+            return {
+              id,
+              pixels: spritePixelCache.get(id)!,
+            };
+          }
+          
           // Extract pixels - should be ArrayBuffer after Electron IPC serialization
-          let pixels = null;
+          let pixels: ArrayBuffer | null = null;
           if (sprite.pixels) {
             // After Electron IPC, pixels should be ArrayBuffer
             if (sprite.pixels instanceof ArrayBuffer) {
               pixels = sprite.pixels;
             } else if (sprite.pixels instanceof Uint8Array) {
-              pixels = sprite.pixels;
+              pixels = sprite.pixels.buffer.slice(sprite.pixels.byteOffset, sprite.pixels.byteOffset + sprite.pixels.byteLength);
             } else if (sprite.pixels.buffer instanceof ArrayBuffer) {
               // Typed array view
-              pixels = sprite.pixels.buffer;
+              pixels = sprite.pixels.buffer.slice(sprite.pixels.byteOffset, sprite.pixels.byteOffset + sprite.pixels.byteLength);
             } else if (typeof sprite.pixels === 'object' && sprite.pixels.byteLength !== undefined) {
-              // ArrayBuffer-like object
-              pixels = sprite.pixels;
+              // ArrayBuffer-like object - convert to proper ArrayBuffer
+              const buffer = new ArrayBuffer(sprite.pixels.byteLength);
+              new Uint8Array(buffer).set(new Uint8Array(sprite.pixels));
+              pixels = buffer;
             } else {
               // Fallback: try to use as-is
               pixels = sprite.pixels;
+            }
+            
+            // Cache the pixels (use a copy to avoid memory issues)
+            if (pixels && pixels instanceof ArrayBuffer) {
+              const cached = pixels.slice(0);
+              spritePixelCache.set(id, cached);
+              spritePixelCacheAccessOrder.set(id, ++spritePixelCacheAccessCounter);
+              
+              // LRU eviction: remove least recently used entry
+              if (spritePixelCache.size > MAX_SPRITE_CACHE_SIZE) {
+                // Find least recently used (lowest access counter)
+                let lruKey: number | null = null;
+                let lruAccess = Infinity;
+                for (const [key, access] of spritePixelCacheAccessOrder.entries()) {
+                  if (access < lruAccess) {
+                    lruAccess = access;
+                    lruKey = key;
+                  }
+                }
+                if (lruKey !== null) {
+                  spritePixelCache.delete(lruKey);
+                  spritePixelCacheAccessOrder.delete(lruKey);
+                }
+              }
             }
           }
           
           return {
             id,
-            pixels,
+            pixels: pixels || undefined,
           };
         });
         
@@ -68,13 +135,33 @@ export const SpriteList: React.FC = () => {
         if (selectedIds.length > 0) {
           setSelectedSpriteIds(selectedIds);
         }
+        
+        // Update pagination info if available
+        // Check both direct properties and data wrapper
+        const paginationData = command.data || command;
+        if (paginationData.totalCount !== undefined || paginationData.minId !== undefined) {
+          const newPagination = {
+            totalCount: paginationData.totalCount || 0,
+            minId: paginationData.minId || 0,
+            maxId: paginationData.maxId || 0,
+            currentMin: paginationData.currentMin || 0,
+            currentMax: paginationData.currentMax || 0,
+          };
+          setPagination(newPagination);
+          onPaginationChange?.(newPagination);
+        } else {
+          // Clear pagination if not available
+          setPagination(null);
+          onPaginationChange?.(null);
+        }
+        
         setLoading(false);
         loadingSpriteRef.current = null; // Clear loading flag
       }
     };
 
     worker.onCommand(handleCommand);
-  }, [worker, setSelectedSpriteIds]);
+  }, [worker, setSelectedSpriteIds, onPaginationChange]);
 
   // Track last loaded thing to prevent duplicate reloads
   const lastThingRef = useRef<{ id: number; category: string } | null>(null);
@@ -100,6 +187,13 @@ export const SpriteList: React.FC = () => {
       loadingSpriteRef.current = null;
     }
   }, [worker]);
+
+  // Expose navigation function for external pagination component
+  useEffect(() => {
+    if (onNavigate) {
+      onNavigate(loadSpriteList);
+    }
+  }, [onNavigate, loadSpriteList]);
   
   // Function to reload sprites from thing data
   const reloadSpritesFromThingData = useCallback((thingData: any) => {
@@ -122,18 +216,26 @@ export const SpriteList: React.FC = () => {
       // Get sprites from the DEFAULT frame group (or first available)
       let spriteIds: number[] = [];
       
-      // Try to get sprites from frame groups
+      // Try to get sprites from frame groups - optimized: combine map+filter into single loop
+      let spritesToProcess: any[] = [];
       if (thingData.sprites instanceof Map) {
         // If it's a Map, get sprites from DEFAULT frame group (0)
-        const defaultSprites = thingData.sprites.get(0) || [];
-        spriteIds = defaultSprites.map((s: any) => s.id).filter((id: number) => id > 0);
+        spritesToProcess = thingData.sprites.get(0) || [];
       } else if (Array.isArray(thingData.sprites)) {
         // If it's an array, use it directly
-        spriteIds = thingData.sprites.map((s: any) => s.id).filter((id: number) => id > 0);
+        spritesToProcess = thingData.sprites;
       } else if (thingData.sprites[0]) {
         // If it's an object with numeric keys
-        const defaultSprites = thingData.sprites[0] || [];
-        spriteIds = defaultSprites.map((s: any) => s.id).filter((id: number) => id > 0);
+        spritesToProcess = thingData.sprites[0] || [];
+      }
+      
+      // Single pass: extract IDs and filter in one loop (faster than map+filter)
+      spriteIds = [];
+      for (let i = 0; i < spritesToProcess.length; i++) {
+        const id = spritesToProcess[i]?.id;
+        if (id && id > 0) {
+          spriteIds.push(id);
+        }
       }
       
       // Load sprite list with first sprite ID if available
@@ -192,7 +294,7 @@ export const SpriteList: React.FC = () => {
     worker.onCommand(handleCommand);
   }, [worker, reloadSpritesFromThingData]);
 
-  const handleSpriteClick = (id: number, e: React.MouseEvent) => {
+  const handleSpriteClick = useCallback((id: number, e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey) {
       // Multi-select: toggle this sprite
       setSelectedSpriteIds(prev => {
@@ -224,9 +326,12 @@ export const SpriteList: React.FC = () => {
       // Single select
       setSelectedSpriteIds([id]);
     }
-  };
+  }, [selectedSpriteIds, sprites, setSelectedSpriteIds]);
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; spriteId: number } | null>(null);
+
+  // Memoize selected IDs as Set for O(1) lookups instead of O(n) includes()
+  const selectedSpriteIdsSet = useMemo(() => new Set(selectedSpriteIds), [selectedSpriteIds]);
 
   const handleContextMenu = (e: React.MouseEvent, spriteId: number) => {
     e.preventDefault();
@@ -237,7 +342,7 @@ export const SpriteList: React.FC = () => {
     if (!contextMenu) return;
     
     const spriteId = contextMenu.spriteId;
-    const idsToUse = selectedSpriteIds.includes(spriteId) ? selectedSpriteIds : [spriteId];
+    const idsToUse = selectedSpriteIdsSet.has(spriteId) ? selectedSpriteIds : [spriteId];
     
     switch (action) {
       case 'export':
@@ -263,6 +368,75 @@ export const SpriteList: React.FC = () => {
     setContextMenu(null);
   };
 
+  // Virtual scrolling calculation
+  const virtualScrollData = useMemo(() => {
+    if (sprites.length === 0) {
+      return { visibleItems: [], startIndex: 0, endIndex: 0, offsetY: 0, totalHeight: 0 };
+    }
+
+    const totalHeight = sprites.length * ITEM_HEIGHT;
+    const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN);
+    const endIndex = Math.min(
+      sprites.length - 1,
+      Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + OVERSCAN
+    );
+    const visibleItems = sprites.slice(startIndex, endIndex + 1);
+    const offsetY = startIndex * ITEM_HEIGHT;
+
+    return {
+      visibleItems,
+      startIndex,
+      endIndex,
+      offsetY,
+      totalHeight,
+    };
+  }, [sprites, scrollTop, containerHeight]);
+
+  // Debounced scroll handler for better performance
+  const scrollTimeoutRef = useRef<number | null>(null);
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    
+    // Cancel previous timeout
+    if (scrollTimeoutRef.current !== null) {
+      cancelAnimationFrame(scrollTimeoutRef.current);
+    }
+    
+    // Use requestAnimationFrame for smooth updates
+    scrollTimeoutRef.current = requestAnimationFrame(() => {
+      setScrollTop(target.scrollTop);
+      scrollTimeoutRef.current = null;
+    });
+  }, []);
+
+  // Measure container height with debouncing
+  useEffect(() => {
+    let rafId: number | null = null;
+    const updateHeight = () => {
+      if (itemsContainerRef.current) {
+        setContainerHeight(itemsContainerRef.current.clientHeight);
+      }
+    };
+
+    updateHeight();
+    const resizeObserver = new ResizeObserver(() => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(updateHeight);
+    });
+    if (itemsContainerRef.current) {
+      resizeObserver.observe(itemsContainerRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, []);
+
   // Keyboard navigation (only when list container is focused)
   const listRef = useRef<HTMLDivElement>(null);
   
@@ -275,7 +449,9 @@ export const SpriteList: React.FC = () => {
       if (!listElement.contains(document.activeElement)) return;
       if (sprites.length === 0) return;
       
-      const selectedIndex = sprites.findIndex(s => selectedSpriteIds.includes(s.id));
+      // Use Set for O(1) lookup instead of O(n) includes()
+      const selectedSet = new Set(selectedSpriteIds);
+      const selectedIndex = sprites.findIndex(s => selectedSet.has(s.id));
       if (selectedIndex < 0 && sprites.length > 0) {
         // No selection, select first item
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -332,35 +508,100 @@ export const SpriteList: React.FC = () => {
       ) : (
         <>
           <div className="sprite-list-header">
-            <span className="sprite-list-count">{sprites.length} sprite{sprites.length !== 1 ? 's' : ''}</span>
+            <span className="sprite-list-count">
+              {pagination ? (
+                <>
+                  {pagination.currentMin}-{pagination.currentMax} of {pagination.totalCount} sprites
+                </>
+              ) : (
+                <>
+                  {sprites.length} sprite{sprites.length !== 1 ? 's' : ''}
+                </>
+              )}
+            </span>
           </div>
-          <div className="sprite-list-items">
-          {sprites.map((sprite) => (
-            <div
-              key={sprite.id}
-              data-sprite-id={sprite.id}
-              className={`sprite-list-item ${
-                selectedSpriteIds.includes(sprite.id) ? 'selected' : ''
-              }`}
-              onClick={(e) => handleSpriteClick(sprite.id, e)}
-              onContextMenu={(e) => handleContextMenu(e, sprite.id)}
-              title={`Sprite #${sprite.id}${selectedSpriteIds.length > 1 ? ` (${selectedSpriteIds.length} selected)` : ''}`}
+          <div 
+            className="sprite-list-items"
+            ref={itemsContainerRef}
+            onScroll={handleScroll}
+            style={{ 
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              position: 'relative'
+            }}
+          >
+            {/* Virtual scrolling container */}
+            <div 
+              style={{ 
+                height: virtualScrollData.totalHeight,
+                position: 'relative'
+              }}
             >
-                <div className="sprite-list-item-preview">
-                  {sprite.pixels ? (
-                    <SpriteThumbnail 
-                      pixels={sprite.pixels} 
-                      size={32} 
-                      scale={2}
-                      format="argb" // Sprite pixels from Sprite.getPixels() are in ARGB format
-                    />
-                  ) : (
-                    <div className="sprite-list-item-placeholder">#{sprite.id}</div>
-                  )}
-                </div>
-                <div className="sprite-list-item-id">#{sprite.id}</div>
-              </div>
-            ))}
+              {/* Offset spacer */}
+              {virtualScrollData.offsetY > 0 && (
+                <div style={{ height: virtualScrollData.offsetY }} />
+              )}
+              
+              {/* Visible items */}
+              {virtualScrollData.visibleItems.map((sprite, index) => {
+                const actualIndex = virtualScrollData.startIndex + index;
+                return (
+                  <div
+                    key={sprite.id}
+                    data-sprite-id={sprite.id}
+                    className={`sprite-list-item ${
+                      selectedSpriteIdsSet.has(sprite.id) ? 'selected' : ''
+                    }`}
+                    onClick={(e) => handleSpriteClick(sprite.id, e)}
+                    onContextMenu={(e) => handleContextMenu(e, sprite.id)}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      // Store sprite data in drag event
+                      const dragData = {
+                        spriteId: sprite.id,
+                        pixels: sprite.pixels,
+                      };
+                      e.dataTransfer.effectAllowed = 'copy';
+                      e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                      // Also set a text fallback for compatibility
+                      e.dataTransfer.setData('text/plain', `sprite:${sprite.id}`);
+                      // Create a drag image - cache rect to avoid multiple calls
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+                      dragImage.style.opacity = '0.5';
+                      document.body.appendChild(dragImage);
+                      dragImage.style.position = 'absolute';
+                      dragImage.style.top = '-1000px';
+                      e.dataTransfer.setDragImage(dragImage, e.clientX - rect.left, e.clientY - rect.top);
+                      setTimeout(() => document.body.removeChild(dragImage), 0);
+                    }}
+                    title={`Sprite #${sprite.id}${selectedSpriteIds.length > 1 ? ` (${selectedSpriteIds.length} selected)` : ''} - Drag to preview canvas to replace sprite`}
+                    style={{
+                      position: 'absolute',
+                      top: actualIndex * ITEM_HEIGHT,
+                      left: 0,
+                      right: 0,
+                      height: ITEM_HEIGHT,
+                    }}
+                  >
+                    <div className="sprite-list-item-preview">
+                      {sprite.pixels ? (
+                        <SpriteThumbnail 
+                          pixels={sprite.pixels} 
+                          size={32} 
+                          scale={2}
+                          format="argb" // Sprite pixels from Sprite.getPixels() are in ARGB format
+                        />
+                      ) : (
+                        <div className="sprite-list-item-placeholder">#{sprite.id}</div>
+                      )}
+                    </div>
+                    <div className="sprite-list-item-id">#{sprite.id}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}

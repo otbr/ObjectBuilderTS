@@ -39,6 +39,20 @@
   overflow: hidden;
 }
 
+.sprites-panel-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sprites-panel .panel-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 .panel-header {
   height: 30px;
   background-color: var(--bg-tertiary);

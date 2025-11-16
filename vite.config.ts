@@ -18,6 +18,19 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: 'localhost',
+    hmr: {
+      host: 'localhost',
+      port: 3000,
+      protocol: 'ws',
+      clientPort: 3000,
+    },
+    watch: {
+      usePolling: false,
+    },
+  },
+  css: {
+    devSourcemap: true,
   },
 });
 

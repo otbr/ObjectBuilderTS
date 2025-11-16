@@ -13,5 +13,7 @@
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  transform: translateZ(0); /* Force GPU acceleration */
+  will-change: contents; /* Optimize for frequent updates */
 }
 

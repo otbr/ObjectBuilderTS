@@ -47,10 +47,15 @@ export class WorkerPool {
 		};
 
 		worker.onerror = (error) => {
-			console.error('Worker error:', error);
+			// Extract error message from Event object
+			const errorMessage = error.message || error.filename || 'Worker error occurred';
+			const errorDetails = error.filename 
+				? `${errorMessage} at ${error.filename}:${error.lineno || '?'}:${error.colno || '?'}`
+				: errorMessage;
+			console.error('Worker error:', errorDetails, error);
 			const task = this.pendingTasks.shift();
 			if (task) {
-				task.reject(new Error('Worker error occurred'));
+				task.reject(new Error(errorDetails));
 			}
 			this.availableWorkers.push(worker);
 			this.processNextTask();

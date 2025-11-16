@@ -14,16 +14,6 @@
   padding: 4px;
 }
 
-.main-left-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 320px;
-  width: 320px;
-  max-width: 400px;
-  overflow: hidden;
-}
-
 .main-editor-area {
   flex: 1;
   display: flex;

@@ -1,8 +1,10 @@
 .sprite-list {
   width: 100%;
-  height: 100%;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
   outline: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .sprite-list:focus {
@@ -31,18 +33,33 @@
 }
 
 .sprite-list-items {
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  contain: layout style;
+  transform: translateZ(0); /* Force GPU acceleration for smooth scrolling */
 }
 
 .sprite-list-item {
   padding: 8px 10px;
-  cursor: pointer;
+  cursor: grab;
   border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.2s;
+  transition: background-color 0.15s ease, transform 0.1s ease;
   display: flex;
   align-items: center;
   gap: 10px;
+  will-change: background-color;
+  contain: layout style paint;
+  transform: translateZ(0); /* Force GPU acceleration */
+}
+
+.sprite-list-item:active {
+  cursor: grabbing;
+}
+
+.sprite-list-item[draggable="true"] {
+  user-select: none;
 }
 
 .sprite-list-item:hover {
@@ -86,6 +103,7 @@
   font-size: 10px;
   font-weight: 500;
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 .sprite-list-count {
