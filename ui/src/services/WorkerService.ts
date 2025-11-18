@@ -3,6 +3,8 @@
  * Uses Electron IPC for desktop app communication
  */
 
+import type { OpenDialogOptions, SaveDialogOptions, DialogResult } from './FileDialogService';
+
 // Simple EventEmitter implementation for browser compatibility
 class EventEmitter {
   private listeners: Map<string, Function[]> = new Map();
@@ -59,6 +61,9 @@ declare global {
       removeCommandListener: () => void;
       onMenuAction?: (callback: (action: string) => void) => void;
       removeMenuActionListener?: () => void;
+      showOpenDialog: (options: OpenDialogOptions) => Promise<DialogResult>;
+      showSaveDialog: (options: SaveDialogOptions) => Promise<DialogResult>;
+      showOpenDirectoryDialog: (options: OpenDialogOptions) => Promise<DialogResult>;
     };
   }
 }

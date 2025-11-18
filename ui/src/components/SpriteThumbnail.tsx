@@ -158,7 +158,9 @@ const SpriteThumbnailComponent: React.FC<SpriteThumbnailProps> = ({
             // Cache the result (limit cache size)
             if (formatDetectionCache.size > 100) {
               const firstKey = formatDetectionCache.keys().next().value;
-              formatDetectionCache.delete(firstKey);
+              if (firstKey !== undefined) {
+                formatDetectionCache.delete(firstKey);
+              }
             }
             formatDetectionCache.set(cacheKey, isARGB);
           }

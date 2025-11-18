@@ -1,0 +1,26 @@
+.hsi-color-panel {
+	position: relative;
+	background: #000000;
+	border: 1px solid var(--border-color);
+	padding: 1px;
+}
+
+.hsi-color-swatch {
+	position: absolute;
+	cursor: pointer;
+}
+
+.hsi-color-highlight {
+	position: absolute;
+	border: 1px solid rgba(0, 0, 0, 0.7);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+	pointer-events: none;
+}
+
+.hsi-color-selection {
+	position: absolute;
+	border: 1px solid #000000;
+	box-shadow: 0 0 0 1px #FFFFFF;
+	pointer-events: none;
+}
+

@@ -26,15 +26,6 @@ export interface DialogResult {
   filePath?: string;
 }
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      showOpenDialog: (options: OpenDialogOptions) => Promise<DialogResult>;
-      showSaveDialog: (options: SaveDialogOptions) => Promise<DialogResult>;
-      showOpenDirectoryDialog: (options: OpenDialogOptions) => Promise<DialogResult>;
-    };
-  }
-}
 
 export class FileDialogService {
   private static instance: FileDialogService | null = null;
@@ -66,7 +57,7 @@ export class FileDialogService {
           if (files && files.length > 0) {
             resolve({
               canceled: false,
-              filePaths: Array.from(files).map((f: File) => (f as any).path || f.name),
+              filePaths: Array.from(files as FileList).map((f: File) => (f as any).path || f.name),
             });
           } else {
             resolve({ canceled: true });

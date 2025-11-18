@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { LookType } from '../utils/LookType';
 import { Button } from './Button';
 import { PreviewCanvas } from './PreviewCanvas';
+import { HSIColorPicker } from './HSIColorPicker';
 import { useToast } from '../hooks/useToast';
 import { useWorker } from '../contexts/WorkerContext';
 import { useAppStateContext } from '../contexts/AppStateContext';
@@ -21,6 +22,8 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 	const [isItem, setIsItem] = useState<boolean>(false);
 	const [previewThingData, setPreviewThingData] = useState<any>(null);
 	const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
+	const prevOutfitDataRef = useRef<{ head: number; body: number; legs: number; feet: number; addons: number } | null>(null);
+	const pendingThingRequestRef = useRef<{ id: number; category: string; timeout?: NodeJS.Timeout } | null>(null);
 
 	// Update XML when lookType changes
 	useEffect(() => {
@@ -28,17 +31,66 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 		setXmlOutput(xml || '');
 	}, [lookType]);
 
+	// Listen for SetThingDataCommand responses
+	useEffect(() => {
+		const handleCommand = (command: any) => {
+			if (command.type === 'SetThingDataCommand') {
+				const thingData = command.data;
+				if (thingData && thingData.thing) {
+					const thingId = thingData.thing.id;
+					const thingCategory = thingData.thing.category;
+					
+					// Check if this is the thing we're waiting for
+					if (pendingThingRequestRef.current &&
+						pendingThingRequestRef.current.id === thingId &&
+						pendingThingRequestRef.current.category === thingCategory) {
+						// Clear timeout if it exists
+						if (pendingThingRequestRef.current.timeout) {
+							clearTimeout(pendingThingRequestRef.current.timeout);
+						}
+						
+						// Clear pending request
+						pendingThingRequestRef.current = null;
+						
+						// Create a modified thingData with outfit colors (only for outfits)
+						const modifiedThingData = { ...thingData };
+						if (modifiedThingData.thing && !isItem && thingCategory === 'outfit') {
+							// Apply outfit colors - we'll update these in a separate effect when colors change
+							modifiedThingData.outfitData = {
+								head: lookType.head,
+								body: lookType.body,
+								legs: lookType.legs,
+								feet: lookType.feet,
+								addons: lookType.addons,
+							};
+						}
+						setPreviewThingData(modifiedThingData);
+						setLoadingPreview(false);
+					}
+				}
+			}
+		};
+
+		worker.onCommand(handleCommand);
+		
+		// Note: We don't remove the listener here because WorkerContext doesn't expose removeListener
+		// The listener will stop being called when the component unmounts
+		// This is the same pattern used in ThingEditor
+	}, [worker, isItem, lookType]);
+
 	// Load preview outfit when outfit/item changes
 	useEffect(() => {
 		const loadPreview = async () => {
 			if (!clientInfo?.loaded) {
 				setPreviewThingData(null);
+				pendingThingRequestRef.current = null;
 				return;
 			}
 
 			const thingId = isItem ? lookType.item : lookType.outfit;
 			if (!thingId || thingId === 0) {
 				setPreviewThingData(null);
+				pendingThingRequestRef.current = null;
 				return;
 			}
 
@@ -46,37 +98,74 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 			try {
 				// Use the correct category based on whether it's an item or outfit
 				const category = isItem ? 'item' : 'outfit';
-				const command = CommandFactory.createGetThingCommand(thingId, category);
-				const result = await worker.sendCommand(command);
 				
-				if (result.success && result.data) {
-					// Create a modified thingData with outfit colors (only for outfits)
-					const thingData = { ...result.data };
-					if (thingData.thing && !isItem) {
-						// Apply outfit colors if available (only for outfits, not items)
-						thingData.outfitData = {
-							head: lookType.head,
-							body: lookType.body,
-							legs: lookType.legs,
-							feet: lookType.feet,
-							addons: lookType.addons,
-						};
-					}
-					setPreviewThingData(thingData);
-				} else {
-					console.log('Preview load result:', result);
-					setPreviewThingData(null);
+				// Clear any existing pending request and its timeout
+				if (pendingThingRequestRef.current?.timeout) {
+					clearTimeout(pendingThingRequestRef.current.timeout);
 				}
+				
+				// Set a timeout to clear loading state if no response comes
+				const timeout = setTimeout(() => {
+					if (pendingThingRequestRef.current &&
+						pendingThingRequestRef.current.id === thingId &&
+						pendingThingRequestRef.current.category === category) {
+						console.warn(`Timeout waiting for thing data: ${category} ${thingId}`);
+						setPreviewThingData(null);
+						setLoadingPreview(false);
+						pendingThingRequestRef.current = null;
+					}
+				}, 5000); // 5 second timeout
+				
+				// Store pending request with timeout so we can match the response and clear timeout
+				pendingThingRequestRef.current = { id: thingId, category, timeout };
+				
+				// Send command - response will come via SetThingDataCommand event
+				const command = CommandFactory.createGetThingCommand(thingId, category);
+				await worker.sendCommand(command);
 			} catch (error: any) {
 				console.error('Failed to load preview:', error);
 				setPreviewThingData(null);
-			} finally {
 				setLoadingPreview(false);
+				if (pendingThingRequestRef.current?.timeout) {
+					clearTimeout(pendingThingRequestRef.current.timeout);
+				}
+				pendingThingRequestRef.current = null;
 			}
 		};
 
 		loadPreview();
 	}, [lookType.outfit, lookType.item, isItem, clientInfo, worker]);
+
+	// Update outfit colors in preview when they change (without reloading the thing)
+	useEffect(() => {
+		if (previewThingData && previewThingData.thing && !isItem) {
+			const newOutfitData = {
+				head: lookType.head,
+				body: lookType.body,
+				legs: lookType.legs,
+				feet: lookType.feet,
+				addons: lookType.addons,
+			};
+			
+			// Only update if outfitData actually changed to avoid unnecessary re-renders
+			const prev = prevOutfitDataRef.current;
+			if (!prev ||
+				prev.head !== newOutfitData.head ||
+				prev.body !== newOutfitData.body ||
+				prev.legs !== newOutfitData.legs ||
+				prev.feet !== newOutfitData.feet ||
+				prev.addons !== newOutfitData.addons) {
+				// Update outfitData in existing previewThingData
+				setPreviewThingData({
+					...previewThingData,
+					outfitData: newOutfitData,
+				});
+				prevOutfitDataRef.current = newOutfitData;
+			}
+		} else {
+			prevOutfitDataRef.current = null;
+		}
+	}, [lookType.head, lookType.body, lookType.legs, lookType.feet, lookType.addons, isItem, previewThingData]);
 
 	// Handle type change (outfit/item)
 	const handleTypeChange = useCallback((value: number) => {
@@ -189,8 +278,30 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 									width={128}
 									height={128}
 									frameGroupType={0}
-									patternX={2}
-									patternY={0}
+									patternX={(() => {
+										// For outfits, use patternX=2 if available, otherwise 0
+										if (!isItem && previewThingData?.thing?.frameGroups?.[0]) {
+											const frameGroup = previewThingData.thing.frameGroups[0];
+											return frameGroup.patternX > 1 ? 2 : 0;
+										}
+										return 0;
+									})()}
+									patternY={(() => {
+										// Convert addons bitmask to patternY index
+										// Addons is a bitmask where bit 0 = addon 1, bit 1 = addon 2
+										// patternY represents which addon layer to show (0 = base, 1 = addon 1, 2 = addon 2, etc.)
+										if (!isItem && lookType.addons > 0) {
+											// Find the highest enabled addon bit
+											let highestAddon = 0;
+											for (let i = 0; i < 3; i++) {
+												if (lookType.addons & (1 << i)) {
+													highestAddon = i + 1;
+												}
+											}
+											return highestAddon;
+										}
+										return 0;
+									})()}
 									patternZ={0}
 									animate={false}
 									zoom={1}
@@ -245,17 +356,9 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 									max={132}
 									className="numeric-input"
 								/>
-								<input
-									type="color"
-									value={`#${Math.min(255, lookType.head).toString(16).padStart(2, '0').repeat(3)}`}
-									onChange={(e) => {
-										// Color picker returns RGB, but we need to use it as a simple value
-										// For now, just use the numeric input for head/body/legs/feet
-										// The color picker is a visual aid
-									}}
-									className="color-input"
-									disabled
-									title="Color picker for HSI colors - use numeric input for now"
+								<HSIColorPicker
+									color={lookType.head}
+									onChange={(color) => updateProperty('head', color)}
 								/>
 							</div>
 
@@ -269,13 +372,9 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 									max={132}
 									className="numeric-input"
 								/>
-								<input
-									type="color"
-									value={`#${Math.min(255, lookType.body).toString(16).padStart(2, '0').repeat(3)}`}
-									onChange={(e) => {}}
-									className="color-input"
-									disabled
-									title="Color picker for HSI colors - use numeric input for now"
+								<HSIColorPicker
+									color={lookType.body}
+									onChange={(color) => updateProperty('body', color)}
 								/>
 							</div>
 
@@ -289,13 +388,9 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 									max={132}
 									className="numeric-input"
 								/>
-								<input
-									type="color"
-									value={`#${Math.min(255, lookType.legs).toString(16).padStart(2, '0').repeat(3)}`}
-									onChange={(e) => {}}
-									className="color-input"
-									disabled
-									title="Color picker for HSI colors - use numeric input for now"
+								<HSIColorPicker
+									color={lookType.legs}
+									onChange={(color) => updateProperty('legs', color)}
 								/>
 							</div>
 
@@ -309,13 +404,9 @@ const LookGeneratorComponent: React.FC<LookGeneratorProps> = ({ onClose }) => {
 									max={132}
 									className="numeric-input"
 								/>
-								<input
-									type="color"
-									value={`#${Math.min(255, lookType.feet).toString(16).padStart(2, '0').repeat(3)}`}
-									onChange={(e) => {}}
-									className="color-input"
-									disabled
-									title="Color picker for HSI colors - use numeric input for now"
+								<HSIColorPicker
+									color={lookType.feet}
+									onChange={(color) => updateProperty('feet', color)}
 								/>
 							</div>
 

@@ -1,6 +1,175 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import './PreviewCanvas.css';
 
+// HSI to RGB conversion (from ColorUtils)
+function HSItoRGB(color: number): number {
+	const values = 7;
+	const steps = 19;
+	let H = 0;
+	let S = 0;
+	let I = 0;
+	let R = 0;
+	let G = 0;
+	let B = 0;
+
+	if (color >= steps * values) {
+		color = 0;
+	}
+
+	if (color % steps === 0) {
+		H = 0;
+		S = 0;
+		I = 1 - color / steps / values;
+	} else {
+		H = (color % steps) * (1 / 18);
+		S = 1;
+		I = 1;
+
+		switch (Math.floor(color / steps)) {
+			case 0:
+				S = 0.25;
+				I = 1;
+				break;
+			case 1:
+				S = 0.25;
+				I = 0.75;
+				break;
+			case 2:
+				S = 0.5;
+				I = 0.75;
+				break;
+			case 3:
+				S = 0.667;
+				I = 0.75;
+				break;
+			case 4:
+				S = 1;
+				I = 1;
+				break;
+			case 5:
+				S = 1;
+				I = 0.75;
+				break;
+			case 6:
+				S = 1;
+				I = 0.5;
+				break;
+		}
+	}
+
+	if (I === 0) {
+		return 0x000000;
+	}
+
+	if (S === 0) {
+		return (Math.floor(I * 0xFF) << 16) | (Math.floor(I * 0xFF) << 8) | Math.floor(I * 0xFF);
+	}
+
+	if (H < 1 / 6) {
+		R = I;
+		B = I * (1 - S);
+		G = B + (I - B) * 6 * H;
+	} else if (H < 2 / 6) {
+		G = I;
+		B = I * (1 - S);
+		R = G - (I - B) * (6 * H - 1);
+	} else if (H < 3 / 6) {
+		G = I;
+		R = I * (1 - S);
+		B = R + (I - R) * (6 * H - 2);
+	} else if (H < 4 / 6) {
+		B = I;
+		R = I * (1 - S);
+		G = B - (I - R) * (6 * H - 3);
+	} else if (H < 5 / 6) {
+		B = I;
+		G = I * (1 - S);
+		R = G + (I - G) * (6 * H - 4);
+	} else {
+		R = I;
+		G = I * (1 - S);
+		B = R - (I - G) * (6 * H - 5);
+	}
+	return (Math.floor(R * 0xFF) << 16) | (Math.floor(G * 0xFF) << 8) | Math.floor(B * 0xFF);
+}
+
+function HSItoARGB(color: number): number {
+	const rgb = HSItoRGB(color);
+	const R = (rgb >> 16) & 0xFF;
+	const G = (rgb >> 8) & 0xFF;
+	const B = rgb & 0xFF;
+	return (0xFF << 24) | (R << 16) | (G << 8) | B;
+}
+
+// Apply outfit colorization to sprite pixels
+// Based on the backend's setColor algorithm:
+// 1. Copy gray to canvas
+// 2. Copy blend's alpha channel to the specified color channel
+// 3. Apply color transform (multiply RGB by color multipliers)
+// 4. Copy result back with blending
+function applyOutfitColor(
+	grayPixels: Uint8Array,
+	blendPixels: Uint8Array,
+	colorARGB: number,
+	channel: 'RED' | 'GREEN' | 'BLUE',
+	size: number
+): Uint8Array {
+	const pixelCount = size * size;
+	const canvas = new Uint8Array(pixelCount * 4);
+	
+	// Extract RGB multipliers from ARGB color
+	const redMultiplier = ((colorARGB >> 16) & 0xFF) / 0xFF;
+	const greenMultiplier = ((colorARGB >> 8) & 0xFF) / 0xFF;
+	const blueMultiplier = (colorARGB & 0xFF) / 0xFF;
+	
+	// Step 1: Copy gray to canvas
+	for (let i = 0; i < pixelCount; i++) {
+		const idx = i * 4;
+		canvas[idx] = grayPixels[idx] ?? 255;     // A
+		canvas[idx + 1] = grayPixels[idx + 1] || 0; // R
+		canvas[idx + 2] = grayPixels[idx + 2] || 0; // G
+		canvas[idx + 3] = grayPixels[idx + 3] || 0; // B
+	}
+	
+	// Step 2: Copy blend's alpha channel to the specified color channel
+	let channelOffset = 0;
+	if (channel === 'RED') channelOffset = 1;
+	else if (channel === 'GREEN') channelOffset = 2;
+	else if (channel === 'BLUE') channelOffset = 3;
+	
+	for (let i = 0; i < pixelCount; i++) {
+		const idx = i * 4;
+		const blendAlpha = blendPixels[idx] ?? 255;
+		// Copy blend alpha to the specified color channel
+		canvas[idx + channelOffset] = blendAlpha;
+	}
+	
+	// Step 3: Apply color transform (multiply RGB by color multipliers)
+	for (let i = 0; i < pixelCount; i++) {
+		const idx = i * 4;
+		canvas[idx + 1] = Math.min(255, Math.floor(canvas[idx + 1] * redMultiplier));   // R
+		canvas[idx + 2] = Math.min(255, Math.floor(canvas[idx + 2] * greenMultiplier)); // G
+		canvas[idx + 3] = Math.min(255, Math.floor(canvas[idx + 3] * blueMultiplier));   // B
+	}
+	
+	// Step 4: Blend result back to gray (with alpha blending)
+	const result = new Uint8Array(pixelCount * 4);
+	for (let i = 0; i < pixelCount; i++) {
+		const idx = i * 4;
+		const canvasA = canvas[idx] / 255;
+		const grayA = (grayPixels[idx] ?? 255) / 255;
+		
+		// Alpha blend: result = canvas * canvasA + gray * (1 - canvasA)
+		const finalA = Math.min(255, Math.floor(canvasA * 255 + grayA * (1 - canvasA) * 255));
+		result[idx] = finalA;
+		result[idx + 1] = Math.min(255, Math.floor(canvas[idx + 1] * canvasA + grayPixels[idx + 1] * (1 - canvasA)));
+		result[idx + 2] = Math.min(255, Math.floor(canvas[idx + 2] * canvasA + grayPixels[idx + 2] * (1 - canvasA)));
+		result[idx + 3] = Math.min(255, Math.floor(canvas[idx + 3] * canvasA + grayPixels[idx + 3] * (1 - canvasA)));
+	}
+	
+	return result;
+}
+
 // Cache for converted ImageData objects to avoid re-processing same sprites
 const imageDataCache = new Map<string, ImageData>();
 const MAX_CACHE_SIZE = 200; // Limit cache size to prevent memory issues
@@ -490,21 +659,21 @@ const PreviewCanvasComponent: React.FC<PreviewCanvasProps> = ({
 						ctx.save();
 						ctx.translate(cellX, cellY);
 						ctx.scale(scale, scale);
-						renderSinglePattern(ctx, frameGroup, sprites, cellWidth, cellHeight, pxIdx, 0, pz, frame, 0, 0);
+						renderSinglePattern(ctx, frameGroup, sprites, cellWidth, cellHeight, pxIdx, 0, pz, frame, 0, 0, true, thingData);
 						ctx.restore();
 
 						// Then overlay only the current patternY layer for this cell
 						ctx.save();
 						ctx.translate(cellX, cellY);
 						ctx.scale(scale, scale);
-						renderSinglePattern(ctx, frameGroup, sprites, cellWidth, cellHeight, pxIdx, pyIdx, pz, frame, 0, 0, false);
+						renderSinglePattern(ctx, frameGroup, sprites, cellWidth, cellHeight, pxIdx, pyIdx, pz, frame, 0, 0, false, thingData);
 						ctx.restore();
 					} else {
 						// No patternY variations or base layer, just render the single pattern
 						ctx.save();
 						ctx.translate(cellX, cellY);
 						ctx.scale(scale, scale);
-						renderSinglePattern(ctx, frameGroup, sprites, cellWidth, cellHeight, pxIdx, pyIdx, pz, frame, 0, 0);
+						renderSinglePattern(ctx, frameGroup, sprites, cellWidth, cellHeight, pxIdx, pyIdx, pz, frame, 0, 0, true, thingData);
 						ctx.restore();
 					}
         }
@@ -530,7 +699,7 @@ const PreviewCanvasComponent: React.FC<PreviewCanvasProps> = ({
     
 	// Render the selected composition. When patternY has multiple layers, we combine base + addon layers up to the
 	// selected pattern value to mimic the in-game appearance.
-	renderSinglePattern(ctx, frameGroup, sprites, totalWidth, totalHeight, pxClamped, pyClamped, pzClamped, frameClamped, offsetX, offsetY);
+	renderSinglePattern(ctx, frameGroup, sprites, totalWidth, totalHeight, pxClamped, pyClamped, pzClamped, frameClamped, offsetX, offsetY, true, thingData);
   };
 
 	const renderSinglePattern = (
@@ -545,7 +714,8 @@ const PreviewCanvasComponent: React.FC<PreviewCanvasProps> = ({
 		frame: number,
 		offsetX: number = 0,
 		offsetY: number = 0,
-		stackAddonLayers: boolean = true
+		stackAddonLayers: boolean = true,
+		thingData?: any
 	) => {
 		const spriteSize = frameGroup.exactSize || 32;
 		const layers = frameGroup.layers || 1;
@@ -617,6 +787,9 @@ const PreviewCanvasComponent: React.FC<PreviewCanvasProps> = ({
 		};
 
 		const renderLayer = (pyValue: number) => {
+			const outfitData = thingData?.outfitData;
+			const isOutfit = outfitData && layers >= 2;
+			
 			// Pre-calculate sprite positions to avoid repeated calculations
 			for (let l = 0; l < layers; l++) {
 				for (let w = 0; w < width; w++) {
@@ -635,10 +808,64 @@ const PreviewCanvasComponent: React.FC<PreviewCanvasProps> = ({
 							continue;
 						}
 
-						const pixels = extractPixels(spriteData);
-						if (pixels) {
-							renderSpritePixelsAt(ctx, pixels, x, y, spriteSize);
+						// For outfits with colorization, layer 0 is gray base, layer 1 is blend mask
+						if (isOutfit && l === 0) {
+							// Render gray base layer
+							const grayPixels = extractPixels(spriteData);
+							if (grayPixels) {
+								// Check if there's a blend layer (layer 1)
+								const blendIndex = getSpriteIndex(w, h, 1, pxClamped, pyValue, pzClamped, frameClamped);
+								if (blendIndex >= 0 && blendIndex < sprites.length) {
+									const blendSpriteData = sprites[blendIndex];
+									if (blendSpriteData) {
+										const blendPixels = extractPixels(blendSpriteData);
+										if (blendPixels) {
+											// Convert to Uint8Array for processing
+											const grayArray = grayPixels instanceof ArrayBuffer ? new Uint8Array(grayPixels) : 
+												(grayPixels instanceof Uint8Array ? grayPixels : new Uint8Array(grayPixels));
+											const blendArray = blendPixels instanceof ArrayBuffer ? new Uint8Array(blendPixels) : 
+												(blendPixels instanceof Uint8Array ? blendPixels : new Uint8Array(blendPixels));
+											
+											// Apply colors in sequence: feet (BLUE), head (BLUE), body (RED), legs (GREEN)
+											// Each color application modifies the result, building up the final colored sprite
+											let coloredPixels = grayArray;
+											
+											// Apply feet color (BLUE channel)
+											const feetColor = HSItoARGB(outfitData.feet);
+											coloredPixels = applyOutfitColor(coloredPixels, blendArray, feetColor, 'BLUE', spriteSize);
+											
+											// Note: In backend, applyFilter is called here, but we'll skip it for now
+											// as it's a complex operation that may not be critical for preview
+											
+											// Apply head color (BLUE channel) - uses result from feet
+											const headColor = HSItoARGB(outfitData.head);
+											coloredPixels = applyOutfitColor(coloredPixels, blendArray, headColor, 'BLUE', spriteSize);
+											
+											// Apply body color (RED channel) - uses result from head
+											const bodyColor = HSItoARGB(outfitData.body);
+											coloredPixels = applyOutfitColor(coloredPixels, blendArray, bodyColor, 'RED', spriteSize);
+											
+											// Apply legs color (GREEN channel) - uses result from body
+											const legsColor = HSItoARGB(outfitData.legs);
+											coloredPixels = applyOutfitColor(coloredPixels, blendArray, legsColor, 'GREEN', spriteSize);
+											
+											// Render the colorized result
+											renderSpritePixelsAt(ctx, coloredPixels.buffer, x, y, spriteSize);
+											continue;
+										}
+									}
+								}
+								// Fallback: render gray layer if no blend layer
+								renderSpritePixelsAt(ctx, grayPixels, x, y, spriteSize);
+							}
+						} else if (!isOutfit || l !== 1) {
+							// Render non-outfit sprites or non-blend layers normally
+							const pixels = extractPixels(spriteData);
+							if (pixels) {
+								renderSpritePixelsAt(ctx, pixels, x, y, spriteSize);
+							}
 						}
+						// Skip blend layer (l === 1) for outfits as it's already processed with layer 0
 					}
 				}
 			}
